@@ -1,0 +1,442 @@
+\documentclass[12pt]{article}
+\usepackage{fullpage}
+\usepackage{natbib}
+\usepackage{amssymb}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage[utf8x]{inputenc}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{bbm}
+\usepackage{parskip}
+\usepackage{Sweave}
+\newcommand{\bma}[1]{\mbox{\boldmath $#1$}}
+\newcommand{\T}{\intercal}
+\newcommand{\bX}{ {\bma{X}} }
+\newcommand{\bx}{ {\bma{x}} }
+\newcommand{\bH}{ {\bma{H}} }
+\newcommand{\bh}{ {\bma{h}} }
+\newcommand{\proglang}[1]{\texttt{#1}}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\pkg}[1]{\texttt{#1}}
+\newcommand{\var}[1]{\textbf{#1}}
+
+\setlength\parindent{0pt}
+  
+\begin{document}
+\title{modelObj: A Regression Utility Package for \proglang{R}} 
+\author{Shannon T. Holloway} 
+\maketitle
+
+\begin{abstract}
+\vspace{-0.08in}
+Often, new statistical methods are developed on the framework of
+traditional regression or classification methods. 
+It is becoming common practice for researchers to disseminate new methods
+to the user community by developing and releasing \proglang{R} packages
+that implement their method. 
+To simplify development, researchers and software developers
+make choices regarding the types of regression and/or
+classification models that can be used; hard-coding the method into the 
+library and limiting or eliminating the ability of the user to modify regression
+control parameters. 
+In many instances, there is not a fundamental reason why a new statistical
+method should use a specific regression method (e.g., linear vs. non-linear) and 
+such choices artificially limit the general application of new methods. 
+In addition, if a new method requires multiple regression
+steps, a developer must artificially break the method into multiple 
+function calls, each for a specific regression/classification step, or 
+provide a cumbersome and/or confusing interface. 
+We have developed a new \proglang{R} package to facilitate the use of 
+existing and future \proglang{R} regression and classification libraries that 
+simplifies the development of general, non-model-specific implementations of 
+new statistical methods. 
+
+\end{abstract}
+\hrule
+\vspace{0.1in}
+
+\noindent {\em Keywords:} Regression and classification
+
+%\VignetteIndexEntry{Using modelObj}
+
+\section{Introduction}
+IMPACT is a joint venture of the University of North Carolina at Chapel Hill, 
+Duke University, and North Carolina State University. The program
+aims to improve the health and longevity of people by improving
+the clinical trial process. A key component of this research has been
+the development of public-use software packages that implement new 
+statistical methods 
+developed by the 30$+$ investigators. Whenever possible, these methods have been
+developed in \proglang{R}. The \code{modelObj} library was born from the 
+need to create simple, general-use implementations of new statistical methods
+that do not limit the underlying regression method(s) and do not require continued 
+upgrading as new regression and/or classification methods become available. 
+
+When creating \proglang{R} packages for statistical methods 
+developed on the framework of traditional regression or classification methods, 
+researchers and/or software developers often
+make choices regarding the types of models that can be
+specified by the user; hard-coding the regression method into the library and
+limiting or eliminating the ability of the user to modify regression
+control parameters. However, the choice of the regression method
+may not be required by the method and these choices can limit the general 
+application of an implementation. 
+
+In addition, a new method may require multiple regression steps. For example,
+a forthcoming package, \pkg{DynTxRegime}, implements
+the Augmented Inverse Probability Weighted Estimators (AIPWE) for average
+treatment effects and requires multiple outcome regressions and
+multiple models for the propensity of treatment. To implement this method
+generally without using the framework described herein
+would require that the procedure be artificially broken into multiple
+function calls, each
+for a specific regression/classification step, or that the user
+interface to the method be cumbersome and/or confusing. 
+
+The \pkg{modelObj} library is built on the premise of a 
+``model object." A model object contains all of the information
+needed to complete a standard regression and prediction step: 
+a formula object, the existing \proglang{R} regression or
+classification method to be 
+used to obtain parameter estimates (the so-called solver method), 
+any control arguments to be passed to the regression
+method, the \proglang{R} method to be used to obtain predictions, 
+and any arguments
+to be passed to the prediction method. This information is
+grouped into a single object of class \code{modelObj} by 
+a call to \code{buildModelObj(\dots)}. To
+use a package built on the model object framework,
+the user creates the \code{modelObj} prior to calling the 
+statistical method and passes the object as input.
+For methods such as AIPWE mentioned
+previously, the user creates an object of class \code{modelObj} for the
+propensity for treatment models and for each of the
+outcome regression models; all of which are passed to the
+AIPWE method as inputs. 
+The \code{modelOBj} library provides 
+simple functions that developers can use to implement standard regression 
+procedures, such as 
+\code{fit(\dots)} to obtain parameter estimates and 
+\code{predict(\dots)}
+to obtain predictions.
+
+
+\section{Interacting with packages that implement the model object framework.}
+
+Users of packages that utilize the model object
+framework will interface with the \code{modelObj} library through
+calls to \code{buildModelObj(\dots)}. These calls
+create a model object for a single regression step and are
+passed as input to the method.
+The \code{buildModelObj(\dots)} function takes as input
+\begin{itemize}
+\item{\var{model} : } {A formula object. 
+                       Note that any lhs variables provided will be ignored.}
+ 
+\item{\var{solver.method} : } {A character string giving the name of the 
+                       \proglang{R} regression or classification method.  
+                       For example,  a user might commonly specify `lm' or  
+                       `glm' for the conditional expectation. For  
+                       classification, `rpart' might be used. 
+                       \textbf{The specified method MUST have a corresponding  
+                       predict method.}}
+ 
+\item{\var{solver.args} : } {Additional arguments to be passed to solver.method. 
+                        This must be provided as a list, where the name of  
+                        each element matches a formal argument of 
+                        solver.method. For example, to do logistic regression 
+                        using glm: 
+\begin{verbatim}
+solver.method = "glm"
+solver.args = list("family"=binomial).
+\end{verbatim}
+
+                       It is assumed that the \proglang{R} method  
+                       specified in solver.method has formal arguments
+                       ``formula" and ``data". If solver.method does not 
+                       use 
+                       ``formula" and/or ``data," solver.args must explicitly 
+                       indicate
+                       the variable names used for these inputs.
+                       For example, list(``x"=``formula") if the formula 
+                       object is passed to solver.method through input argument
+                       ``x" or list(``df"=``data") if the data.frame object
+                       is passed to solver.method through input argument ``df." 
+}
+ 
+\item{\var{predict.method} : } {A character string giving the function name of
+                       the \proglang{R} function to be used to obtain 
+                       predictions. For example, `predict.lm' or `predict.glm'. 
+                       If no function is explicitly given, the generic 
+                       `predict' method is assumed. Most often, this
+                       input can be omitted.}
+ 
+\item{\textbf{predict.args} : } { Additional arguments to be passed to 
+                       predict.method. This must be provided as a list, 
+                       where the name of each element matches a formal 
+                       argument of predict.method. For example, 
+                       if a logistic regression using glm was used to fit the 
+                       model formula object and predictions on the scale of 
+                       the response are desired, 
+
+\begin{verbatim}
+solver.method = "glm" 
+solver.args = list("family"=binomial) 
+predict.method = "predict"
+predict.args = list("type"="response").
+\end{verbatim}
+
+                       It is assumed that the \proglang{R} method  
+                       specified in predict.method has formal arguments
+                       ``object" and ``newdata". If predict.method does not 
+                       use  these 
+                       formal arguments, predict.args must explicitly indicate
+                       the variable names used for these inputs. 
+                       For example, list(``x"=``object") if the object 
+                       returned by solver.method is passed to predict.method 
+                       through input argument ``x"  or list(``ndf"=``newdata") 
+                       if the data.frame object is passed to predict.method 
+                       through input argument ``ndf." .
+}
+
+
+\end{itemize}
+
+Unless modified through \var{solver.args} and \var{predict.args}, 
+default settings are assumed for the methods specified in
+\var{solver.method} and \var{predict.method}. 
+
+As a simple example, 
+<<>>=
+library(modelObj)
+object1 <- buildModelObj(model=~x1, solver.method='lm')
+@ 
+defines a model object for a linear model, the parameter estimates of
+which are to be obtained using \code{lm}, and predictions obtained using 
+\code{predict}. The solver and prediction methods will use default settings.
+
+As a more complex (though contrived) example, consider the following functions
+<<>>=
+mylm <- function(df,x){
+  obj <- list()
+  obj$lm <- lm(formula=x, data=df)
+  obj$var <- "does something neat"
+  class(obj) = "mylm"
+  return(obj)
+}
+predict.mylm <- function(data,obj,ty){
+  obj <- predict.lm(object=obj$lm, newdata=data, type=ty)
+  obj <- exp(obj)
+  return(obj)
+}
+@ 
+which, for the sake of argument, represent a ``new" 
+regression method that a user would like to utilize.
+These functions are `silly' examples of solver methods and
+prediction methods that do not accept the standard formal arguments. However,
+they provide a simple illustration of how flexible the framework can be. 
+In this circumstance, the user would define the following modeling object:
+<<>>=
+object2 <- buildModelObj(model=~x1, 
+                         solver.method='mylm', 
+                         solver.args=list('x'="formula", 'df'="data"),
+                         predict.method='predict.mylm', 
+                         predict.args=list('obj'="object", 'data'="newdata", 
+                                           ty='response'))
+@ 
+
+\section{Developing packages that implement the model object framework.}
+
+
+The \code{buildModelObj()} function invoked by a user returns an object of class 
+\code{modelObj}. 
+
+Developers that use this utility package should carefully document 
+for users any required settings for \var{solver.method} and 
+\var{predict.method}. 
+For example, the scale of the response needed for predictions. 
+Though the developer can access and modify the argument lists provided by
+users using methods \code{predictorArgs()} and \code{solverArgs()}, 
+there is no strict variable naming convention in \proglang{R},
+and some methods do not adhere to the ``usual" choices. Thus,
+identifying the formal argument to adjust may be tricky.
+
+Once provided an object of class modelObj, developers can **see** all
+of the values contained in the object but can modify only the argument lists to
+be passed to methods. Specifically:
+
+\begin{itemize}
+
+\item{\code{model}        } {Retrieves the formula object.}
+\item{\code{solver}       } {Retrieves the character name of the regression
+                             method.}
+\item{\code{solverArgs}   } {Retrieves the list of arguments to be passed to
+                             the regression method.}
+\item{\code{predictor}    } {Retrieves the character name of the prediction
+                             method.}
+\item{\code{predictorArgs}} {Retrieves the list of arguments to be passed to
+                             the prediction method.}
+\item{\code{solverArgs<-} } {Sets the list of arguments to be passed to
+                             the regression method.}
+\item{\code{predictorArgs<-}} {Sets the list of arguments to be passed to
+                             the prediction method.}
+\end{itemize}
+
+
+The primary utility method available for objects of
+class \code{modelObj} is \code{fit(\dots)}, which implements the regression step. 
+
+The inputs for \code{fit(\dots)} are:
+
+\begin{itemize}
+  \item{\var{object}  } {an object of class \code{modelObj}.}
+
+  \item{\var{data}    } {data.frame of covariates to be used to obtain the fit.}
+
+  \item{\var{response}} {the response vector}
+
+  \item{\textbf{\dots}} {ignored}
+\end{itemize}
+
+The \code{fit(\dots)} method constructs and executes the
+function call to the specified solver method using the formula
+object and formal arguments provided by the user in solver.args. 
+The \code{fit(\dots)} method uses an internal 
+naming convention for the response, and thus only the right-hand-side of 
+the formula object is referenced. 
+
+\code{fit(\dots)} returns an S4 object of class \code{modelObjFit}.
+Developers can access members of this class using the following
+methods:
+\begin{itemize}
+
+\item{\code{fitObject}    } {Retrieves the value object returned by the 
+                             regression method. Through this retrieve method,
+                             developers have the ability to access any 
+                             defined methods for the regression function,
+                             such as \code{coef}, \code{residuals}, or 
+                             \code{plot}.}
+\item{\code{predictor}    } {Retrieves the character name of the prediction
+                             method to be used to obtain predictions.}
+\item{\code{predictorArgs}} {Retrieves the list of arguments to be passed to
+                             the prediction method when making predictions.}
+\end{itemize}
+Note that predictor and predictorArgs only give you access to **see** what
+has been specified for the prediction method. Should changes need to be
+made to the arguments, one must apply these changes to the
+defining modelObj before creating the modelObjFit object.
+
+Additional methods available for \code{modelObjFit} objects are
+\begin{itemize}
+
+\item{\code{coef(\dots)}     } {If defined for the regression method, returns
+                                the estimated coefficients.}
+\item{\code{plot(\dots)}     } {If defined for the regression method, generates
+                                the plot of the model fitting class.}
+\item{\code{predict(\dots)}  } {Obtains predictions from the results of the
+                                model fitting function.}
+\item{\code{residuals(\dots)}} {If defined for the regression method, returns 
+                                the residuals.}
+\item{\code{show(\dots)}} {Uses the predefined show method of the regression
+                           method.}
+\item{\code{summary(\dots)}} {Uses the predefined summary method of the regression
+                           method.}
+\end{itemize}
+
+Again, the value object returned by the regression method
+can be retrieved using \code{fitObject}; 
+thereby providing access to any \proglang{R} methods developed for 
+the regression method. We have chosen to implement only the most common methods
+(\code{coef()}, \code{residuals()}, etc.) for the \code{modelObjFit} object.
+Note that not all regression methods have these functions.
+If these functions are required in your implementation, 
+additional checks must be incorporated 
+into your code to ensure their availability.
+
+
+\section{Example Implementation of \code{modelObj}}
+
+We use a standard \proglang{R} dataset to illustrate the implementation of the
+model object framework. The `pressure' data frame contains ``data
+on the relation between temperature in degrees Celsius and vapor
+pressure of mercury in millimeters (of mercury)." For more details,
+the reader is referred to ?pressure.
+
+<<>>=
+summary(pressure)
+@ 
+
+It is straightforward to implement a regression step. 
+As an example, suppose we are developing a new package called \pkg{wow}.
+The primary function of this package is \code{exampleFun()}. 
+In this function, we want to obtain a fit
+and return the fitted response and the estimated coefficients in a list.
+Our function takes the following form
+<<>>=
+exampleFun <- function(modelObj, data, Y){
+
+    fitObj <- fit(modelObj, data, Y)
+
+    ##Test that coef() is an available method
+    cfs <- try(coef(fitObj), silent=TRUE)
+    if(class(cfs) == 'try-error'){
+      warning("Provided regression method does not have a coef method.\n")
+      cfs <- NULL
+    } 
+
+    fitted <- predict(fitObj)
+
+    return(list("fitted"=fitted, "coef"=cfs))
+}
+@ 
+
+To use this function, the user must create the object of class \code{modelObj}
+and provide it as input to \code{exampleFun()}. 
+The user can implement a linear model as follows:
+<<>>=
+ylog <- log(pressure$pressure)
+objlm <- buildModelObj(model = ~temperature,
+                       solver.method = "lm",
+                       predict.method = "predict.lm",
+                       predict.args = list("type"="response"))
+fitObjlm <- exampleFun(objlm, pressure, ylog)
+print(fitObjlm$fitted[1:5])
+print(fitObjlm$coef)
+@ 
+
+Or, the non-linear least squares method \code{nls}:
+
+<<>>=
+objnls <- buildModelObj(model = ~exp(a + b*temperature),
+                        solver.method = "nls",
+                        solver.args = list('start'=list(a=1, b=0.1)),
+                        predict.method = "predict",
+                        predict.args = list("type"="response"))
+fitObjnls <- exampleFun(objnls, pressure, pressure$pressure)
+print(fitObjnls$fitted[1:5])
+print(fitObjnls$coef)
+@ 
+
+Or, even the previously defined ``new" method:
+<<>>=
+objectnew <- buildModelObj(model = ~temperature, 
+                           solver.method = 'mylm', 
+                           solver.args=list('x'="formula", 'df'="data"),
+                           predict.method='predict.mylm', 
+                           predict.args=list('obj'="object", 'data'="newdata", 
+                                             ty='response'))
+fitObjnew <- exampleFun(objectnew, pressure, ylog)
+print(fitObjnew$fitted[1:5])
+print(fitObjnew$coef)
+@ 
+
+In the last example, the function returned NULL for the
+parameter estimates because there is no available
+method to retrieve the estimated parameters.
+
+The same function, \code{exampleFun()} can be used to implement each 
+of these models, and no development is required to extend the package
+to new models or methods as they become available. 
+
+\end{document}

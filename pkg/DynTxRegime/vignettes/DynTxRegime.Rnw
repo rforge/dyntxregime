@@ -1,0 +1,3162 @@
+\documentclass[12pt]{article}
+\usepackage{fullpage}
+\usepackage{natbib}
+\usepackage{amssymb}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage[utf8x]{inputenc}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{bbm}
+\usepackage{Sweave}
+\usepackage{helvet}
+
+\setcounter{secnumdepth}{5}
+
+
+\newcommand{\pkg}[1]{\emph{#1}}
+\newcommand{\class}[1]{\texttt{#1}}
+\newcommand{\functionSig}[3]{\textit{#1}(signature(#2 = ``#3"))}
+\newcommand{\functionSigTwoD}[5]{\textit{#1}(signature(#2 = ``#3", #4 = ``#5"))}
+\newcommand{\function}[1]{\textit{#1}()}
+\newcommand{\argument}[1]{\textbf{#1}}
+
+\newcommand{\bma}[1]{\mbox{\boldmath $#1$}}
+\newcommand{\T}{\intercal}
+\newcommand{\bX}{ {\bma{X}} }
+\newcommand{\bx}{ {\bma{x}} }
+\newcommand{\bH}{ {\bma{H}} }
+\newcommand{\bh}{ {\bma{h}} }
+\newcommand{\proglang}[1]{\texttt{#1}}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\mom}[1]{\mu_{#1}}
+\newcommand{\moc}[1]{\mathcal{C}_{#1}}
+\newcommand{\hist}[1]{\mathcal{H}_{#1}}
+\newcommand{\given}[1]{\mid \bar{X}_{#1}=\bar{x}_{#1}, \bar{A}_{#1}=\bar{a}_{#1}}
+\newcommand{\Qf}[1]{Q_{#1}(\bar{x}_{#1},\bar{a}_{#1-1}, a_{#1})}
+\newcommand{\Qfb}[1]{Q_{#1}(\bar{x}_{#1},\bar{a}_{#1-1}, a_{#1};\beta_{#1})}
+\newcommand{\for}[1]{\bar{x}_{#1},\bar{a}_{#1-1}}
+\newcommand{\barX}[1]{\bar{X}_{#1}}
+\newcommand{\barx}[1]{\bar{x}_{#1}}
+\newcommand{\barA}[1]{\bar{A}_{#1}}
+\newcommand{\bara}[1]{\bar{a}_{#1}}
+\newcommand{\barg}[1]{\bar{g}_{#1}}
+
+\setlength\parindent{0pt}
+\setlength{\parskip}{0.5cm}
+  
+\begin{document}
+\title{Dynamic Treatment Regimes in \proglang{R} using \pkg{DynTxRegime}: } 
+\author{Shannon T. Holloway, Marie Davidian, Eric B. Laber, Kristin A. Linn,\\ 
+Leonard A. Stefanski, Anastasios Tsiatis, Baqun Zhang, and Min Zhang} 
+\maketitle
+
+\begin{abstract}
+\vspace{-0.08in}
+A goal of personalized
+medicine is to optimize long-term clinical outcomes by
+using the unique characteristics of individual patients to 
+customize treatments and therapies. A dynamic treatment regime 
+formalizes this process as a sequence of decision rules
+that map current and past patient information to
+a recommended treatment or therapy. Consequently,
+there is a growing need for powerful and flexible estimators
+of optimal treatment regimes that can be used with either observational
+or randomized clinical trial data. The \pkg{DynTxRegime}
+package implements four statistical methods
+for estimating an optimal treatment regime: $Q$-learning,
+Interactive $Q$-learning ($IQ$-learning), doubly robust value-search
+estimators
+of optimal treatment regimes, and doubly robust value-search
+estimators of
+optimal treatment from a classification perspective.
+In this vignette, we briefly describe the main structure behind each method
+and discuss in detail their implementation in the \pkg{DynTxRegime} package.
+\end{abstract}
+\hrule
+\vspace{0.1in}
+
+\noindent {\em Keywords:} Interactive Q-learning; Q-learning; 
+Dynamic Treatment Regimes; Dynamic Programming; doubly robust;
+augmented inverse probability weighted estimator.
+
+%\VignetteIndexEntry{Using iqLearn}
+
+\section{Introduction}
+
+In practice, clinicians and intervention scientists must adapt
+treatment recommendations in response to the evolving health
+status of each patient.  A dynamic treatment regime (DTR) formalizes
+the treatment process as a sequence of decision rules
+that map patient information to
+a recommended treatment.  For a prespecified outcome,
+a DTR is said to be optimal if it yields the maximal expected outcome when 
+applied to assign treatment to a population of interest. 
+
+$Q$-learning \citep{Wat+Day:92, Mur:05b, Sch:14} is one approach used to 
+estimate an optimal 
+DTR using data from a clinical trial or observational 
+study. At each decision point, 
+regression models based on available patient information are postulated
+for the outcome. The 
+method is implemented through a backward-recursive fitting procedure based 
+on a dynamic programming algorithm \citep{Bather:00}. 
+Under certain assumptions 
+and correct specification of the models, $Q$-learning leads to a
+consistent estimation of the optimal regime. $Q$-learning 
+is implemented in \pkg{DynTxRegime} through \function{qLearn}.
+
+$Q$-learning involves modeling nonsmooth, 
+nonmonotone functions of the data. Nonmonotonicity complicates the 
+regression function, while nonsmoothness imparts nonregularity to 
+$Q$-learning estimators. Interactive $Q$-learning ($IQ$-learning) was 
+proposed by \citet{Linn:14} to model the data before applying the necessary nonmonotone, 
+nonsmooth operations. The method uses standard interactive model building 
+techniques that involve conditional 
+mean and variance modeling of smooth transformations of the data. 
+As such, this method often 
+results in better fitting and more interpretable models than $Q$-learning. 
+In \pkg{DynTxRegime}, the method is defined for two-stage treatment regimes 
+with binary treatments, 
+the steps of which are implemented as \function{iqLearnSS},
+\function{iqLearnFSM}, \function{iqLearnFSC}, and \function{iqLearnFSV}.
+
+In the single-decision-point setting, \citet{Zhang1DP:12} proposed 
+an approach to the estimation of an optimal treatment regime
+that maximizes a doubly robust augmented 
+inverse probability weighted estimator (AIPWE) for the so-called
+``value," the population mean outcome if all patients were to receive
+treatment according to the regime. The value estimator is derived
+from a missing data analogy.
+The approach focuses on a restricted class of 
+treatment regimes indexed by a finite number of parameters, where the forms 
+of the regimes in the class depend on key subsets of patient information 
+derived from posited regression models or are prespecified on the grounds of 
+interpretability or cost. The method leads to estimated optimal regimes 
+that achieve comparable performance to those derived via $Q$-learning 
+under correctly specified models and has the added benefit of protection 
+against misspecification. 
+In \citet{ZhangKDP:13} the authors adapted the single-treatment-stage
+method to the multiple-decision-point setting 
+by reformulating the problem as one of monotone coarsening.
+Both of these methods are implemented as \function{optimalSeq} in the 
+\pkg{DynTxRegime} package.
+
+\citet{ZhangClass:12} developed a general framework for estimating the 
+optimal treatment regime for single-decision-point analyses.
+The procedure for determining the
+optimal treatment regime is recast as a weighted classification problem
+in which the optimal treatment minimizes the expected weighted 
+misclassification error. 
+Within this framework, a variety of outcome estimators can be used,
+including the AIPWE estimator of \citet{Zhang1DP:12}. In addition,
+the class of treatment regimes does not need to be 
+prespecified but is identified in a data-driven manner. 
+This method is implemented in 
+\pkg{DynTxRegime} as \function{optimalClass}.
+
+In the following sections, we describe the general framework of each method 
+as implemented in the \pkg{DynTxRegime} package and provide illustrative
+examples of the key capabilities. 
+
+\subsection{\bf Text Formatting Conventions}
+
+Throughout this manuscript,
+we will use the following conventions to differentiate between package names,
+class names, functions, and arguments:
+
+\begin{table}[h]
+  \begin{center}
+    \begin{tabular}{c}
+      \pkg{package} \\
+      \class{class} \\
+      \function{function} \\
+      \argument{argument}
+    \end{tabular}
+    \caption{Text formatting conventions.}
+  \end{center}
+\end{table}
+
+
+
+\subsection{\bf Defining Regression Steps}
+All of the statistical methods implemented in \pkg{DynTxRegime} rely
+on at least one postulated 
+regression model. The choice of linear or non-linear
+models is not an inherent limitation for any of these methods. 
+As such, hard-coding a specific regression algorithm 
+into the \proglang{R} procedures would artificially limit the
+applicability of the implementation. Thus, we make use of 
+\proglang{R} package \pkg{modelObj}.
+This tool affords users the freedom to completely define 
+the models and the regression tools for each regression step of an analysis. 
+Though we briefly review the framework below, the reader is referred to the 
+vignette of \pkg{modelObj} for details of its use. 
+
+\pkg{modelObj} provides a ``model object" framework 
+for the development of new \proglang{R} packages, through which the details of a
+regression step and subsequent predictions are defined by the user. 
+Specifically, a ``model object" contains 
+the model (\argument{model}), the \proglang{R} function to be used for the regression
+(\argument{solver.method}), 
+control parameters to be passed to the fitting function
+(\argument{solver.args}),
+the \proglang{R} function to be used to obtain predictions (\argument{predict.method}), and 
+control parameters to be passed to the prediction function 
+(\argument{predict.args}). 
+The only requirement
+of this framework is that the specified fitting function must have a 
+corresponding prediction method. 
+
+The following illustrates how to create a so-called ``model object."
+
+\begin{verbatim}
+moExample <- buildModelObj(model = ~ x,
+                           solver.method = 'glm',
+                           solver.args = list('family'='binomial'),
+                           predict.method = 'predict.glm',
+                           predict.args = list('type'='response'))
+\end{verbatim} 
+\argument{moExample} contains all of the information needed
+to perform a regression analysis and to make predictions based
+on that analysis. The model is defined to be $\sim x$. In this example, 
+the regression analysis is to be completed using the \proglang{R} \function{glm} function.
+With the exception of \argument{family}, all formal arguments
+of \function{glm} will use their default settings. 
+The specification of \argument{family}=`binomial' in \argument{solver.args}
+indicates that \argument{family} will be set to `binomial' rather than its
+default value of `gaussian.' 
+Predictions will be obtained using \function{predict.glm}. 
+The \argument{predict.args} specification \argument{type}=`response'
+indicates that any predictions will be on the scale of the response.
+For most methods of \pkg{DynTxRegime}, this scaling 
+for predictions is required.
+
+
+\subsection{Standard Regression Analysis Tools}
+\label{methods}
+
+In the illustrative examples provided in this vignette,
+we skip the usual exploratory techniques that 
+an analyst would employ to find the best-fitting models.  These steps 
+would only distract from our main focus, which 
+is to present the steps of the methods implemented in \pkg{DynTxRegime}.  
+Analysts who use these methods should employ standard data exploration 
+techniques. All
+models and decision rules estimated in the following sections are strictly
+illustrative.
+
+In an effort to facilitate responsible model-building,
+some standard regression analysis
+tools have been extended to the objects returned by all methods
+of \pkg{DynTxRegime}, i.e., objects of class \class{DynTxRegime}.
+Most of these methods simply extend those defined
+for the class of object returned by the model fitting function, e.g., 
+\function{coef} and \function{plot}. 
+
+The method \functionSig{coef}{object}{DynTxRegime}
+extends the \function{coef} method available for most \proglang{R} 
+regression implementations. The structure of the extracted model coefficients 
+depends on the regression method. However, for standard model fitting classes
+it will be a named numeric vector.
+
+Method \functionSig{fitObject}{object}{DynTxRegime}
+extends the \function{fitObject} method of \pkg{modelObj} and
+returns the value object as defined for the fitting function.
+The structure of the returned value 
+object depends on the regression method. This function is useful when there
+are methods available for a model fitting class that
+cannot be accessed through the \class{DynTxRegime} object directly.
+
+If defined, \functionSig{plot}{x}{DynTxRegime}
+utilizes the \function{plot} method available
+for the \proglang{R} fitting function used to obtain parameter estimates. 
+
+The \functionSig{residuals}{object}{DynTxRegime} method
+does not extend the \function{residuals} method available 
+through the fitting class. Rather, the function returns a numeric vector
+of the residuals as defined for the \pkg{DynTxRegime} method.
+
+Finally, \functionSig{summary}{object}{DynTxRegime}
+uses the \function{summary} method available
+for the \proglang{R} regression implementation. 
+The exact structure of the summary 
+information depends on the fitting function.
+
+\subsection{Dataset bmiData}
+\label{bmi}
+  
+The methods in this vignette will be illustrated using a
+simulated dataset called \argument{bmiData} which is included in
+\pkg{DynTxRegime}. The data were generated to mimic a two-stage
+sequential, multiple assignment, randomized trial (SMART)
+of body mass index (BMI) reduction with two treatments at each
+stage.  The arguments, treatments, and outcomes in \argument{bmiData} are
+based on a small subset of arguments collected in a clinical trial
+that studied the effect of meal replacements (MRs) on weight loss and BMI
+reduction in obese adolescents; see \citet{Ber+etal:10} for a complete
+description of the original randomized trial. Descriptions of
+the generated arguments in \argument{bmiData} are given in Table
+(\ref{table:bmivars}). Baseline covariates include 
+\argument{gender}, \argument{race},
+\argument{parentBMI}, and \argument{baselineBMI}. Four- and twelve-month
+patient BMI measurements were also included to reflect the original
+trial design. In the generated data,
+treatment was randomized to meal replacement (MR) or conventional diet
+(CD) at both stages, each with probability 0.5. In the original
+study, patients randomized to CD in stage one remained on CD with
+probability one in the second stage.  Thus, our generated data arise from a
+slightly different
+design than that of the original trial.  In addition,
+some patients in the original dataset were missing the final twelve
+month response and various first- and second-stage covariates.
+Our generated data is complete, and the illustrations that follow are 
+presented under the
+assumption that missing data have been addressed prior
+to using these methods. 
+
+\begin{table}
+  \begin{center}
+    \begin{tabular}{|lcp{11cm}|}\hline
+      &&\\
+      \argument{gender} $\in \{0, 1\}$ & \,:\,& patient gender; 
+        female (0) and male (1). \\   
+      \argument{race} $\in \{0, 1\}$ & \, : \, & patient race;
+        African American (0) or other (1). \\ 
+      \argument{parentBMI} $\in \mathbb{R}$ & \, : \, & parent BMI
+        measured at baseline. \\ 
+      \argument{baselineBMI} $\in \mathbb{R}$ & \, : \, & patient BMI
+        measured at baseline. \\ 
+      \argument{A1} $\in \lbrace CD, MR\rbrace$ &\,:\,& first-stage randomized
+        treatment; meal replacement (MR) and conventional diet (CD). \\  
+      \argument{month4BMI} $\in \mathbb{R}$ & \, : \, & patient BMI
+        measured at month 4. \\ 
+      \argument{A2} $\in \lbrace CD, MR\rbrace$ &\,:\,& second-stage randomized
+        treatment; meal replacement (MR) and conventional diet (CD). \\  
+      \argument{month12BMI} $\in \mathbb{R}$ &\,:\,& patient BMI
+        measured at month 12.\\ 
+      &&\\
+      \hline
+    \end{tabular}
+    \caption{Description of covariates in \argument{bmiData}.}
+    \label{table:bmivars}
+  \end{center}
+\end{table}
+
+<<echo=false>>=
+options(width=70)
+@
+ 
+After installing \pkg{DynTxRegime}, load the package:
+<<>>=
+library( DynTxRegime )
+@
+ 
+Next, load \argument{bmiData} into the workspace with
+<<>>=
+data( bmiData )
+@
+ 
+The dataset  is a \class{data.frame} with 210 rows
+corresponding to patients and 8 columns corresponding to covariates,
+BMI measurements, and assigned treatments.   
+<<>>=
+dim( bmiData )
+head( bmiData )
+@
+ 
+We will use the negative percent change in BMI at month 12 from baseline as
+our final outcome:
+<<>>=
+y <- -100*(bmiData$month12BMI -
+           bmiData$baselineBMI)/bmiData$baselineBMI
+@
+  
+Thus, higher values indicate greater BMI loss, a desirable clinical
+outcome. 
+
+\section{General notation and problem specification}
+We begin by developing a common notation and vocabulary with which we 
+will describe each method. 
+The following will be developed in the framework of a multiple-decision-points 
+setting with an unspecified number of treatment options at each decision point.
+Most of the details of the theory will be omitted, and only the
+main results will be presented. Users are referred to the original
+manuscripts for details.
+
+Assume that there are $K$ prespecified, ordered decision points 
+(stages of treatment) and an outcome 
+of interest, $Y$, measured after decision point $K$. It is
+assumed that larger values of $Y$ are preferred. 
+At each stage $k = 1, \dots, K$, the set of treatment options 
+is denoted as $\mathcal{A}_{k}$, and we write $a_{k}$ to denote an element of 
+$\mathcal{A}_k$.
+For example, if the treatment option is binary at decision point $k$, then
+$a_k \in \mathcal{A}_k \equiv \{0,1\}$.
+We will use an overline to denote a history, e.g., 
+$\bara{k} = (a_1, \dots, a_k)$.
+
+We will use a potential outcomes framework. For a randomly chosen patient, 
+let $X_1$ denote the baseline covariates recorded prior to the first decision. 
+For $k=2,\dots,K$, let $X^*_k(\bara{k-1})$ be the covariate information that 
+would accrue between decisions $(k-1)$ and $k$ were the patient to receive 
+treatment history $\bara{k-1}$. $X_{k}^{*}(\bara{k-1})$
+takes values $x_k \in \mathcal{X}_k$. 
+Let $Y^*(\bara{K})$ be the outcome that would result
+were the patient to receive full treatment history $\bara{K}$. 
+Then, define
+the potential outcomes \citep{Rob:86} as
+\begin{displaymath}
+W=\{X_1,X^*_2(a_1),\dots,X^*_K(\bara{K-1}),Y^*(\bara{K})
+\mathrm{~for~all~} \bar{a}_K \in \bar{\mathcal{A}}_K~ \}.
+\end{displaymath}
+For convenience, we include $X_{1}$ in $W$. 
+However, $X_{1}$ is always observed and thus is not
+strictly a potential outcome. Thus, we write 
+$\barX{k}^{*}(\bara{k-1})=\{X_{1}, X_{2}^{*}(a_{1}), \dots,
+X_{k}^{*}(\bara{k-1})\}$ and
+$\barx{k} = (x_{1}, \dots, x_{k})$ for $k=1,\dots,K$.
+
+Decision rule $g_k(\barx{k},\bara{k-1})$ corresponds to the $k^{th}$
+decision and takes as input a patient's realized 
+covariate and treatment history up to decision $k$ and outputs a treatment 
+option, $a_k \in \Phi_k(\bar{x}_k,\bar{a}_{k-1}) \subseteq \mathcal{A}_k$. 
+In general, $\Phi_k(\bar{x}_k,\bar{a}_{k-1})$ is the set of feasible 
+treatment options at decision $k$ for a patient with realized history 
+$(\bar{x}_k,\bar{a}_{k-1})$, allowing that some options in $\mathcal{A}_k$ may
+not be possible for patients with certain histories. 
+Thus, a feasible treatment rule must satisfy 
+$g_k(\bar{x}_k,\bar{a}_{k-1}) \in \Phi_k(\bar{x}_k,\bar{a}_{k-1})$
+for all $\bar{x}_k,\bar{a}_{k-1}$.
+A dynamic treatment regime (DTR), 
+$g = \{g_{1}, \dots, g_{K}\}$, 
+is an ordered set of decision rules. We denote the class of all feasible 
+regimes as $\mathcal{G}$.
+
+For a specific $g \in \mathcal{G}$, writing $\bar{g}_k = (g_1,\dots, g_k)$ for 
+$k=1,\dots,K$ and $\bar{g}_K=g$, define the potential outcomes associated 
+with $g$ to be $W_g=\{X_1,X^*_2(g_1),\dots,X^*_K(\bar{g}_{K-1}),Y^*(g)\}$,
+where $X^*_k(\bar{g}_{k-1})$ is the covariate information that would be seen
+between decisions $(k-1)$ and $k$ were a patient to receive the treatments
+dictated sequentially by the first $(k-1)$ rules in $g$, and $Y^*(g)$ is the
+outcome if the patient were to receive the $K$ treatments determined by $g$.
+Thus, $W_g$ is an element of $W$.
+
+An optimal treatment regime 
+$g^{opt}=(g^{opt}_1,\dots,g^{opt}_K)\in \mathcal{G}$ satisfies
+\begin{equation}
+\label{eq1}
+\mathbb{E}\{Y^*(g^{opt})\} \ge \mathbb{E}\{Y^*(g)\}, g \in \mathcal{G}.
+\end{equation}
+That is, $g^{opt}$ is a regime that maximizes the expected potential outcome were all
+patients in the population to follow it. 
+
+This definition of an optimal regime is intuitively given in terms of
+potential outcomes. In practice, a patient is observed to experience only a
+single treatment history. Thus, with the exception of $X_{1}$, $W$ cannot be
+observed for any patient. To be useful in practice, an optimal
+regime must be defined in terms of the observed data. To this end, define
+$A_{k}$ to be the observed treatment received at
+decision $k$, and let $\barA{k}=(A_{1}, \dots, A_{k})$ be the observed treatment
+history
+up to decision $k$. Let $X_{k}$ be the covariate information observed between
+decision $(k-1)$ and $k$ under the observed treatment history 
+$\barA{k-1}$ $(k=2,\dots,K)$, with history $\barX{k}=(X_{1},\dots X_{k})$ for 
+$k=1,\dots,K$. Let $Y$ be the observed outcome under 
+$\bar{A}_K$. The observed data on a patient are $(\barX{K}, \barA{K},Y)$,
+and the data available from a clinical trial or observational study involving
+$n$ subjects are independent and  identically distributed 
+$(\barX{Ki},\barA{Ki},Y_{i})$ for $i=1,\dots,n$.
+
+Under standard assumptions, $g^{opt}$ may equivalently be
+expressed in terms of the observed data, where
+\begin{displaymath}
+X_{k} = X_{k}^{*} ( \bar{A}_{k-1} ) = 
+\sum_{ \bar{a}_{k-1} \in \bar{\mathcal{A}}_{k-1}} 
+X^{*}_{k}(\bar{a}_{k-1}) I(\bar{A}_{k-1}=\bar{a}_{k-1})
+ \mathrm{~for~} k=1,\dots,K,
+\end{displaymath}
+ and 
+\begin{displaymath}
+Y=Y^{*}(\bar{A}_{K})=
+\sum_{ \bar{a}_{K} \in \bar{\mathcal{A}}_K} 
+Y^*(\bar{a}_K) I(\bar{A}_K=\bar{a}_K); 
+\end{displaymath}
+that is, a patient's observed covariates and outcome are the same as the
+potential ones s/he would exhibit under the treatment history actually
+received. 
+
+\section{Outcome Regression Methods}
+
+Both $Q$-learning and Interactive $Q$-learning are outcome regression methods.
+The methods employ dynamic programming,
+also referred to as backward induction, to estimate $g^{opt}$. 
+One begins at the $K$th decision point and defines
+
+\begin{eqnarray}
+Q_{K}(\barx{K},\bara{K}) &=& \mathbb{E}(Y \given{K}), \nonumber \\
+g_{K}^{opt}(\barx{K},\bara{K}) &=& \arg 
+\max_{ a_{K} \in \Phi_{K}(\barx{K},\bara{K-1})} 
+Q_{K}(\barX{K},\barA{K-1},a_{K}), \nonumber \\
+V_{K}(\barX{K},\barA{K-1}) &=& \max_{ a_{K} \in \Phi_{K}(\barx{K},\bara{K-1})} 
+Q_{K}(\barX{K},\barA{K-1},a_{K}). \nonumber
+\end{eqnarray}
+
+Thus, $g^{opt}_K$ yields the treatment option at decision $K$ that maximizes
+the potential outcome given prior covariate and treatment history.
+For $k=K-1,\dots,1$, 
+define
+
+\begin{eqnarray}
+Q_{k}(\barx{k},\bara{k}) &=& 
+\mathbb{E}\{ V_{k+1}( \barX{k},X_{k+1},\barA{k} ) \given{k} \}  \nonumber \\
+g_{k}^{opt}(\barx{k},\bara{k}) &=& \arg 
+\max_{ a_{k} \in \Phi_{k}(\barx{k},\bara{k-1})} 
+Q_{k}(\barX{k},\barA{k-1},a_{k}),  \nonumber \\
+V_{k}(\barx{k},\bara{k-1}) &=& \max_{ a_{k} \in \Phi_{k}(\barx{k},\bara{k-1})} 
+Q_{k}(\barX{k},\barA{k-1},a_{k}). \nonumber 
+\end{eqnarray}
+ At
+decisions $k=K-1,\dots,1$, $g^{opt}_k$ dictates the option that maximizes the
+potential outcome if the optimal rules were
+followed in the future. 
+
+The $Q_{k}(\barx{k},\bara{k})$ are referred to as the ``Q-functions,"
+viewed as measuring the ``quality" associated with using treatment
+$a_{k}$ at decision $k$ given the history up to that decision and
+then following the optimal regime thereafter. The ``value functions,"
+ $V_{k}(\barx{k},\bara{k-1})$, reflect the ``value" of a patient's
+history assuming that optimal decisions are made in the future.
+
+
+\subsection{Q-learning}
+
+$Q$-learning approximates the $Q$-functions with 
+linear or non-linear regression models $Q_{k}(\barx{k},\bara{k}; \beta)$.
+In the \pkg{DynTxRegime} implementation, the regression models are 
+defined in terms of the main effects of treatment and the
+interactions between treatment $a_{k}$ and $\{\barx{k},\bara{k-1}\}$, 
+the covariate and treatment history:
+\begin{displaymath}
+Q_{k}(\barx{k}, \bara{k-1}, a_{k}; \beta_{k}) = 
+\mom{k}(\barx{k}, \bara{k-1};\gamma_{k}) +
+a_{k}~\moc{k}(\bar{x}_k, \bar{a}_{k-1};\eta_{k}), ~~  k=1,\dots, K,
+\end{displaymath}
+where $\mom{k}(\bar{x}_k, \bar{a}_{k-1};\gamma_k)$ models the main effects
+of treatment, 
+$\moc{k}(\bar{x}_k, \bar{a}_{k-1};\eta_k)$ models the
+contrast functions, and $\beta_{k} = (\gamma_{k}^{\top},
+\eta_{k}^{\top})^{\top}$. The $Q$-learning algorithm is given below.
+
+\vspace{5mm}
+
+\noindent {\bf $Q$-learning Algorithm:}    
+\begin{center}
+  \begin{tabular}{|c l p{5in} |}
+    \hline
+       &           & \\
+    QK.& Modeling: & Regress $Y$ on $\bar{X}_{K}$ and $\bar{A}_{K}$ to obtain \\ 
+       &           & $Q_{K} ( \barx{K}, \bara{K-1}, a_{K}; \hat{\beta}_{K} ) =
+                     \mom{K}(\barx{K}, \bara{K-1}; \hat{\gamma}_{K}) + 
+                     a_{K}~\moc{K}(\barx{K}, \bara{K-1}; \hat{\eta}_{K})$. \\ 
+       &           & \\
+    & Maximization: & Define \\
+    &               & $V_{K}(\barx{K}, \bara{K-1}; \hat{\beta}_{K}) = 
+                      \max_{a_{K} \in \Phi_{K}(\barx{K}, \bara{K-1})} 
+                      Q_{K} ( \barx{K}, \bara{K-1}, a_{K}; \hat{\beta}_{K} )$.\\
+       &           & \\
+    &               & $g_{K}^{opt}(\barx{K}, \bara{K-1}; \hat{\beta}_{K}) = 
+                     \arg \max_{a_{K} \in \Phi_{K}(\barx{K}, \bara{K-1})} 
+                     Q_{K} ( \barx{K}, \bara{K-1}, a_{K}; \hat{\beta}_{K} )$. \\  
+       &           & \\
+    \multicolumn{3}{|l|}{For $k=K-1,\dots,1$} \\
+       &           & \\
+    Qk.& Modeling: & Regress 
+    $V_{k+1}(\barX{k},X_{k+1},\barA{k}; \hat{\beta}_{k+1})$ on 
+     $\barX{k}$ and $\barA{k}$ to obtain \\
+    && $Q_{k} ( \barx{k}, \bara{k-1}, a_{k}; \hat{\beta}_{k} ) =
+    \mom{k}(\barx{k}, \bara{k-1}; \hat{\gamma}_{k}) + 
+    a_{k}~\moc{k}(\barx{k}, \bara{k-1}; \hat{\eta}_{k})$. \\ 
+    && \\
+    & Maximization: & Define \\
+    &               & $V_{k}(\barx{k}, \bara{k-1}; \hat{\beta}_{k}) = 
+                      \max_{a_{k} \in \Phi_{k}(\barx{k}, \bara{k-1})} 
+                    Q_{k} ( \barx{k}, \bara{k-1}, a_{k}; \hat{\beta}_{k} )$. \\  
+    && \\
+    &               & $g_{k}^{opt}(\barx{k}, \bara{k-1}; \hat{\beta}_{k}) = 
+                      \arg \max_{a_{k} \in \Phi_{k}(\barx{k}, \bara{k-1})} 
+                      Q_{k} ( \barx{k}, \bara{k-1}, a_{k}; \hat{\beta}_{k} )$. \\  
+    && \\
+    \hline
+  \end{tabular}
+\end{center}
+
+
+\subsubsection{\function{qLearn}}
+Function 
+\function{qLearn} implements a single regression step of the $Q$-learning
+algorithm and is called for each regression step of the analysis.
+\begin{verbatim}
+qLearn(moMain, moCont, data, response, txName, fSet = NULL, iter = 0L)
+\end{verbatim}
+\begin{itemize}
+
+\item{\argument{moMain}:  }{an object of class \class{modelObj}
+created by \function{buildModelObj} of \pkg{modelObj}.
+This object defines the model and regression/prediction functions 
+to be used for the main effects term of the $Q$-function, 
+$\mom{k}(\barx{k}, \bara{k-1}; \gamma_k)$.
+When defining the modeling object, the prediction method must
+return predictions on the scale of the response.}
+
+\item{\argument{moCont}:  }{an object of class \class{modelObj}
+created by \function{buildModelObj} of \pkg{modelObj}.
+This object defines the model and regression/prediction functions  
+to be used for the 
+contrast functions of the $Q$-function, 
+$\moc{k}(\barx{k}, \bara{k-1}; \eta_k)$.
+When defining the modeling object, the prediction method must
+return predictions on the scale of the response.}
+
+\item{\argument{data}:  }{an object of class \class{data.frame} containing
+the observed covariate and treatment histories. Treatments can be factors
+or integers. }
+
+\item{\argument{response}: }{an object of class \class{vector} or
+an object of class \class{DynTxRegime} as returned by the previous call
+to \function{qLearn}. 
+If a \class{vector}, \argument{response} is the final outcome of interest.
+If an object of class \class{DynTxRegime}, 
+\argument{response} is the value object returned from
+the previous step of the $Q$-learning algorithm. 
+This argument is discussed in detail below.}
+
+\item{\argument{txName}: }{an object of class \class{character} specifying 
+the column header of the treatment variable in \argument{data}.}
+
+\item{\argument{fSet}: } {an object of class \class{function}.
+This function defines the rules for determining the feasible treatment options, 
+$\Phi_k(\barx{k}, \bara{k-1})$, for an individual based on their covariate and treatment
+history. This argument will be discussed in detail in Subsection \ref{fset}.}
+
+\item{\argument{iter}: } {an object of class \class{integer}.
+If \argument{iter} $ = 0$, the model parameters of 
+$Q_{k}(\barx{k},\bara{k}; \beta_{k})$ will be obtained using a single regression analysis,
+i.e., input arguments \argument{moMain} and \argument{moCont} will
+be combined into a single model for $Q_{k}(\barx{k},\bara{k}; \beta_{k})$. 
+By default, the parameter estimates will be obtained using
+the \proglang{R} function specified in \argument{moMain}.
+If \argument{moMain} = NULL, the methods specified in \argument{moCont}
+will be used. 
+
+If \argument{iter} $ \ge 1$, \argument{moMain} and \argument{moCont}
+will be fit separately using an iterative algorithm. 
+The iterative algorithm is as follows: 
+\begin{eqnarray}
+(1) && Y = Y_{main} + Y_{cont} \nonumber \\
+(2) && \hat{Y}_{cont} = 0 \nonumber \\
+(3) && Y_{main} = Y - \hat{Y}_{cont} \nonumber \\
+(4) && \mathrm{fit} ~ Y_{main} \sim moMain \nonumber \\
+(5) && Y_{cont} = Y-\hat{Y}_{main} \nonumber \\
+(6) && \mathrm{fit} ~ Y_{cont} \sim A * moCont \nonumber \\
+(7) && \mathrm{Repeat~steps~(3) - (6)} \nonumber \\
+    && \mathrm{until~convergence~or~a~maximum~number~of~iterations.} \nonumber
+\end{eqnarray}
+\argument{iter} indicates
+the maximum number of iterations to be used to attain convergence.}
+
+\end{itemize}
+
+\subsubsection{Illustrative Example}
+
+We will use the \argument{bmiData} dataset for this example. We assume that
+the code in Section \ref{bmi} has ben executed and that the data is
+loaded into the working environment.
+Before starting the $Q$-learning analysis, we must recast the treatment
+arguments as integers or factors. If not provided as
+factors by the user, they will be coerced to integer values 
+during execution. 
+
+<<>>=
+data <- bmiData
+data$A1[ bmiData$A1=="MR" ] <- 1
+data$A1[ bmiData$A1=="CD" ] <- 0
+data$A2[ bmiData$A2=="MR" ] <- 1
+data$A2[ bmiData$A2=="CD" ] <- 0
+data$A1 <- as.integer(data$A1)
+data$A2 <- as.integer(data$A2)
+@
+ 
+
+\paragraph{Second-stage regression}
+
+First, we must specify the model for 
+$Q_{2} ( \barx{2}, a_{1}, a_{2}; \beta_{2} ) = \mom{2}(\bar{x}_2,a_1) +
+a_{2}~ \moc{2}(\bar{x}_2,a_1)$. 
+One can choose any combination of linear or non-linear models for which 
+appropriate \proglang{R} methods are available. 
+For simplicity, we choose linear models for 
+$\mom{2}(\barx{2},a_1)$ and $\moc{2}(\barx{2},a_1)$,
+where
+\begin{eqnarray}
+Q_{2} ( \barx{2}, a_{1}, a_{2}; \beta_{2} ) &=& 
+\mathrm{gender}   ~\beta_{20} + 
+\mathrm{parentBMI}~\beta_{21} + 
+\mathrm{month4BMI}~\beta_{22} + 
+\mathrm{A1}       ~\beta_{23} \nonumber \\
+&+&
+\mathrm{A2}( \beta_{24} + 
+\mathrm{month4BMI} ~\beta_{25} + \mathrm{A1} ~\beta_{26}). \nonumber
+\end{eqnarray}
+
+The model objects are created using  
+\function{buildModelObj} of \pkg{modelObj} as follows:
+<<SSModels>>=
+moMainSS <- buildModelObj(model = ~ gender + parentBMI + month4BMI,
+                          solver.method = 'lm',
+                          predict.method = 'predict.lm',
+                          predict.args = list(type='response'))
+
+moContSS <- buildModelObj(model = ~ parentBMI + month4BMI,
+                          solver.method = 'lm',
+                          predict.method = 'predict.lm',
+                          predict.args = list(type='response'))
+@
+
+Note that only the right-hand-side of the formula object is required;
+any left-hand-side arguments will be ignored.
+In addition, because we do not specify any additional arguments for the 
+regression method, \function{lm}, default values will be used. 
+For both models, the same regression method, prediction method, and method
+arguments are specified. Thus, the $Q$-function can be
+fit in a single regression step. Doing so will be more
+efficient. In the call to \function{qLearn},
+we can specify \argument{iter}=0 to combine the regression steps into one. 
+Finally, predictions are specified to be given on the scale of the response, 
+\argument{predict.args} = list(type=`response'). This scaling is required by method
+\function{qLearn}. For \function{predict.lm}, this setting is the default and thus
+does not technically need to be provided by the user. 
+However, because this setting is
+critical to the method, we recommend that users explicitly set the
+scale of the predictions as a means to ensure that this requirement has been
+considered.
+
+For convenience, if the full $Q$-function is to be fit in a single
+analysis (\argument{iter} = 0), 
+users can provide the complete model (including treatment interactions) 
+through \argument{moMain} as a \class{modelObj} and specify \argument{moCont}=NULL.
+For our example, we could also have defined the model objects
+as follows:
+<<>>=
+moMainEx <- buildModelObj(model = ~ gender + parentBMI + 
+                                    A2*(month4BMI + A1),
+                          solver.method = 'lm',
+                          predict.method = 'predict.lm',
+                          predict.args = list(type='response'))
+
+moContEx <- NULL
+@
+
+We will only provide examples using
+two model objects 
+in the remainder of this vignette.
+
+
+For the final stage regression, \argument{response} is the final outcome 
+argument, $y$. The second-stage $Q$-Learning analysis is initiated as follows:
+<<>>=
+fitQ2 <- qLearn(moMain = moMainSS, 
+                moCont = moContSS,
+                data = data, 
+                txName = 'A2', 
+                response = y,
+                iter = 0L)
+@
+\function{qLearn} returns an object that inherits from class 
+\class{DynTxRegime}. 
+%10
+<<>>=
+is(fitQ2, "DynTxRegime")
+@
+ 
+Note that the entire $Q$-learning step, $Q2$, has been performed. 
+No additional steps are required for the second-stage analysis. 
+
+\paragraph{First-stage regression}
+As before, we start by defining the regression models and methods to be
+used to estimate $Q_1(x_{1},a_{1})$. We assume the following linear model:
+\begin{eqnarray}
+Q_1(x_{1},a_{1},\beta_{1}) &=& 
+\mathrm{gender}      ~\beta_{10} + 
+\mathrm{race}        ~\beta_{11} + 
+\mathrm{parentBMI}   ~\beta_{12} + 
+\mathrm{baseline4BMI}~\beta_{13} \nonumber \\
+&+& 
+\mathrm{A1}( \beta_{14} + \mathrm{parentBMI}   ~\beta_{15} +
+\mathrm{baselineBMI} ~\beta_{16}). \nonumber
+\end{eqnarray}
+The model objects are defined as 
+<<FSModels>>=
+moMainFS <- buildModelObj(model = ~ gender + race + parentBMI + baselineBMI,
+                          solver.method = 'lm',
+                          predict.method = 'predict.lm',
+                          predict.args = list(type='response'))
+
+moContFS <- buildModelObj(model = ~ gender + parentBMI,
+                          solver.method = 'lm',
+                          predict.method = 'predict.lm',
+                          predict.args = list(type='response'))
+
+@
+\function{qLearn} is used for all steps of the $Q$-Learning
+algorithm. The regression stage is determined by the object
+passed through \argument{response}. For the final-stage, \argument{response}
+is the final outcome. For all other stages, 
+\argument{response} is the object returned by the previous-stage 
+analysis. 
+
+The first-stage analysis follows:
+<<>>=
+fitQ1 <- qLearn(moMain = moMainFS, 
+                moCont = moContFS,
+                data = data, 
+                txName = 'A1', 
+                response = fitQ2,
+                iter = 100L)
+@
+Throughout the vignette, we will use the iterative method for all
+first-stage analyses. This is not necessary as we limit our examples to
+linear models, which are solved more efficiently in a single regression
+step. However, the structure of the objects returned by
+most methods depends on the regression algorithm, and 
+we wish to highlight the primary differences. 
+
+ 
+Notice above that two regression analyses are shown: moMain Fit and moCont Fit.
+These results correspond to the final step of
+the iterative algorithm. 
+
+\paragraph{Post-Analysis Tools}
+Common tools used to examine a regression 
+analysis have been extended to objects of class \class{DynTxRegime} and
+were described previously in Subsection \ref{methods}. These tools can
+be applied to the objects returned by \function{qLearn}.
+
+Single-decision-point objects of class \class{DynTxRegime}
+such as those returned by \function{qLearn}, may contain more
+than one regression analysis (e.g., if \argument{iter} $>$ 0). 
+To ensure that the regression steps are clearly separated,
+the regression tools described in Subsection \ref{methods}
+return named lists.
+The names of the list elements 
+depend on the original call to 
+the \pkg{DynTxRegime} method. All possible combinations are described in Table 
+\ref{table:QlistNames}. 
+
+\begin{table}[h]
+\caption{Structure of values returned by standard regression tools.}
+\centering
+\begin{tabular}{ccc|cp{2in}}
+\hline
+moMain   & moCont   &      & \multicolumn{2}{c}{Returned List} \\
+class    & class    & iter & length & key(s) \\
+\hline
+modelObj & modelObj & 0  & 1 &\$Combined \\
+modelObj & modelObj & $>$0 & 2 &\$MainEffect \\
+         &          &    &   &\$Contrast \\
+modelObj & NULL     & -- & 1 &\$moMain \\
+NULL     & modelObj & -- & 1 &\$moCont \\
+modelObjSubset List & modelObjSubset List & 0  & $n$ &named list, each
+                                                    element of  \\
+of length $n$ & of length $n$ & & & which contains \$Combined \\
+modelObjSubset List & modelObjSubset List & $>$0 & $2n$ &named list, each
+                                                    element of  \\
+of length $n$ & of length $n$ & & & which contains \$MainEffect \\
+         &          &    &   &\$Contrast \\
+modelObjSubset List & NULL     & -- & $n$ &named list, each
+                                                    element of  \\
+of length $n$ &  & & & which contains \$moMain \\
+NULL     & modelObjSubset List & -- & $n$ &named list, each
+                                                    element of  \\
+ & of length $n$ & & & which contains \$moCont \\
+\end{tabular}
+\label{table:QlistNames}
+\end{table}
+To illustrate, recall that we used the iterative algorithm to obtain
+parameter estimates for step $Q1$, i.e., \argument{moMain} was
+of class \class{modelObj}, \argument{moCont} was
+of class \class{modelObj}, and \argument{iter}$>$0. Therefore,
+the returned object is a list
+<<>>=
+fitObjQ1 <- fitObject(fitQ1)
+is(fitObjQ1, 'list')
+@
+each element of which corresponds to a component of the model for 
+$Q_1(x_{1},a_{1})$
+<<>>=
+names(fitObjQ1)
+fitObjQ1
+@
+Notice that for the iterative algorithm, the treatment variable
+has been included in the model of \argument{moCont}. 
+
+For the second stage, we used a combined model for  $Q_2(\barx{2},\bara{2})$,
+and the returned object is a list
+<<>>=
+fitObjQ2 <- fitObject(fitQ2)
+is(fitObjQ2, 'list')
+@
+with one named element.
+<<>>=
+names(fitObjQ2)
+fitObjQ2
+@
+For \function{plot}, the keys indicated in Table \ref{table:QlistNames}
+will be appended to the title of the generated plots. This additional
+information can be suppressed using \argument{suppress}=TRUE in the call.
+
+As was noted in Subsection \ref{methods}, the value returned by 
+\function{residuals} depends on the \pkg{DynTxRegime} method.
+For $Q$-learning, 
+\function{residuals} returns a numeric vector of the residuals for 
+the full/combined model. 
+
+Function \function{optTx} can be used to retrieve the estimated optimal 
+second-stage treatment for the training set, i.e., \argument{data}:
+<<>>=
+optQ2_testSet <- optTx(x=fitQ2)
+head(optQ2_testSet$qFunctions)
+head(optQ2_testSet$optimalTx)
+@
+A list is returned. Element \$qFunctions is the matrix of estimated
+$Q$-functions. The $i^{th}$ row corresponds to the $i^{th}$ observation
+in \argument{data}. Each column corresponds to a treatment value as 
+indicated in the column header. \$optimalTx contains a vector of
+the estimated optimal treatment. The class of \$optimalTx can  be
+either \class{factor} or \class{integer} and depends on the
+class of the treatment variable in \argument{data}.
+
+To retrieve only the matrix of the estimated second-stage $Q$-functions 
+for each treatment option,  
+<<>>=
+qFuncsQ2 <- qFuncs(object=fitQ2)
+head(qFuncsQ2)
+@
+Similarly, for the first-stage treatment:
+<<>>=
+optQ1_testSet <- optTx(x=fitQ1)
+head(optQ1_testSet$qFunctions)
+head(optQ1_testSet$optimalTx)
+qFuncsQ1 <- qFuncs(object=fitQ1)
+head(qFuncsQ1)
+@
+
+To recommend a $k^{th}$-stage optimal treatment for a new patient,
+both the $k^{th}$-stage \class{DynTxRegime} object and a \class{data.frame}
+ of new patient covariates are passed to \function{optTx}. 
+
+Consider a new patient with the following baseline covariate information:
+%20
+<<>>=
+newpatient <- data.frame("gender" = 1, 
+                         "race" = 1, 
+                         "parentBMI" = 40, 
+                         "baselineBMI" = 35)
+@
+
+The recommended first-stage optimal treatment based on our $Q$-learning
+analysis is:
+<<>>=
+optQ1 <- optTx(x=fitQ1, newdata=newpatient)
+optQ1
+@
+ 
+As for the test set, a list is returned, which includes
+\$qFunctions, a matrix of the first-stage $Q$-functions for each 
+treatment option, and the recommended first-stage
+treatment for the new patient, \$optimalTx. 
+
+Assume that our new patient is given the recommended first-stage treatment,
+and at month 4, the patient's BMI is measured to be 25.
+<<>>=
+newpatient <- cbind(newpatient, "A1"=optQ1$optimalTx, "month4BMI" = 25)
+@
+ 
+The recommended second-stage optimal treatment is:
+<<>>=
+optQ2 <- optTx(x=fitQ2, newdata=newpatient)
+optQ2
+@
+
+\subsection{More Complex $Q$-Learning Examples}
+\label{qmethods-complex}
+\vspace{5mm}
+\subsubsection{\bf Feasible Treatment Sets}
+\label{fset}
+In some trial settings, the set of treatment options available to a patient at 
+each decision point, $\Phi_k(\barx{k},\bara{k-1})$, depends on the patient 
+history and/or prior treatments.
+For example, in the original study upon which our \argument{bmiData} is based,
+patients randomized to CD in stage one remained on CD with probability one 
+in stage two. Thus, $\Phi_2(\barx{2},A_{1}=CD) = \{CD\}$
+and $\Phi_2(\barx{2},A_{1}=MR) = \{CD,MR\}$.
+Patients that have only one treatment option available
+should not be included in the second-stage regression analysis. And, the
+maximization step must be taken over only the treatments available to a
+patient.
+
+\function{qLearn} has an optional input argument, \argument{fSet},
+which allows the user to specify the available treatments
+based on a patient's history. 
+These rules are defined by the user as a function. 
+The function must take as input \argument{data}, the covariates and treatment
+history of a single patient, and return
+a list. The first element of the list is a nickname for the subset. It
+can take any character value that is consistent with \proglang{R}'s
+standard naming convention. The second element of the list is the vector of
+treatment options. For the second stage
+of the original study, this rule would take the following form
+<<>>=
+fSet <- function(data){
+          if( data$A1 == 0L ) {
+            return( list("A",c(0L)) )
+          } else if( data$A1 == 1L ) {
+            return( list("B",c(0L,1L)) )
+          }
+        }
+@
+where we have nicknamed subset $\{0\}$ ``A" and  subset $\{0,1\}$ ``B."
+
+The second-stage $Q$-learning analysis differs from the previous example
+only in the presence of the \argument{fSet} input argument as defined above:
+%30
+<<>>=
+moMain <- buildModelObj(model = ~ gender + parentBMI + month4BMI,
+                        solver.method = 'lm',
+                        predict.method = 'predict.lm',
+                        predict.args = list(type='response'))
+
+moCont <- buildModelObj(model = ~ month4BMI,
+                        solver.method = 'lm',
+                        predict.method = 'predict.lm',
+                        predict.args = list(type='response'))
+
+fitQ2_FS <- qLearn(moMain = moMain, 
+                   moCont = moCont,
+                   data = data, 
+                   txName = 'A2', 
+                   response = y,
+                   fSet = fSet,
+                   iter = 0L)
+@
+For the first-stage analysis, all treatments are available to all patients,
+and input argument \argument{fSet} is not required. Here, the
+analysis is initiated as for the previous example. 
+<<>>=
+<<FSModels>>
+
+fitQ1_FS <- qLearn(moMain = moMainFS, 
+                   moCont = moContFS,
+                   data = data, 
+                   txName = 'A1', 
+                   response = fitQ2_FS,
+                   iter = 100L)
+@
+ 
+
+When treatment recommendations for new patients are obtained using 
+\function{optTx}, the rules for determining the feasible set of treatment 
+options are respected. Consider again our new patient:
+<<echo=false>>=
+newpatient <- newpatient[,1:4,drop=FALSE]
+@
+<<>>=
+newpatient
+@
+
+In this analysis, the recommended first-stage treatment is:
+<<>>=
+optQ1_FS <- optTx(x=fitQ1_FS, newdata=newpatient)
+optQ1_FS
+@
+ 
+Because the recommended first-stage treatment is $A_{1}=0$, the only
+treatment option available to the patient at the second
+stage is $A_{2}=0$.
+As before, assume that the patient is given the recommended first-stage 
+treatment, and the patient's BMI is measured to be 25 at month 4.
+<<>>=
+newpatient <- cbind(newpatient, "A1"=optQ1_FS$optimalTx, "month4BMI" = 25)
+@
+ 
+The recommended second-stage optimal treatment is:
+<<>>=
+optQ2_FS <- optTx(x=fitQ2_FS, newdata=newpatient);
+optQ2_FS
+@
+ 
+
+Notice that the $Q$-function returned  
+for the second-stage treatment $A_{2}=1$ is NA
+indicating that this treatment was not in the feasible set of treatments
+for the patient.
+
+
+\subsubsection{\bf Subset Modeling}
+\label{subsetModeling}
+In addition to defining rules for feasible treatment sets, the 
+\function{qLearn} method allows for unique models to be specified for
+subsets of patients. For example, the design of a clinical
+trial could be such that prior to the second-stage treatment,
+a response argument, $R \in \{0,1\}$, is measured. 
+One can specify a model for the subset of patients with $R=0$ 
+and another for the subset of patients with $R=1$.
+
+Our \argument{bmiData} dataset can be manipulated to illustrate this scenario.
+<<>>=
+data$R <- rbinom(nrow(data),1,0.5)
+@
+Above, we have randomly assigned a response argument
+to each patient. Though the set of feasible treatments available to
+both subsets is the same, we provide \argument{fSet} to define
+how the data is to be subset.
+<<>>=
+fSet <- function(data){
+          if( data$R == 0L ) {
+            return(list("A",c(0L,1L)))
+          } else if( data$R == 1L ) {
+            return(list("B",c(0L,1L)))
+          }
+        }
+@
+Unlike previous examples, we want to specify a unique model for each
+subset, $A$ and $B$. \function{buildModelObjSubset} extends
+\function{buildModelObj} of \pkg{modelObj} by allowing
+the user to specify the subset for which the model is defined.
+The second-stage $Q$-learning model objects will now be lists and are defined as:
+<<>>=
+moMain <- list()
+moCont <- list()
+#Models for subset data$R=0
+moMain[[1]] <- buildModelObjSubset(model = ~ gender + month4BMI + A1,
+                                   subset = "A",
+                                   solver.method = 'lm',
+                                   predict.method = 'predict.lm',
+                                   predict.args = list(type='response'))
+
+moCont[[1]] <- buildModelObjSubset(model = ~ month4BMI + A1,
+                                   subset = "A",
+                                   solver.method = 'lm',
+                                   predict.method = 'predict.lm',
+                                   predict.args = list(type='response'))
+
+#Models for subset data$R=1
+moMain[[2]] <- buildModelObjSubset(model = ~ gender + parentBMI + A1,
+                                   subset = "B",
+                                   solver.method = 'lm',
+                                   predict.method = 'predict.lm',
+                                   predict.args = list(type='response'))
+
+moCont[[2]] <- buildModelObjSubset(model = ~ parentBMI + A1,
+                                   subset = "B",
+                                   solver.method = 'lm',
+                                   predict.method = 'predict.lm',
+                                   predict.args = list(type='response'))
+@
+
+The call for the second-stage $Q$-learning analysis is unchanged:
+%40
+<<>>=
+fitQ2_SM <- qLearn(moMain = moMain, 
+                   moCont = moCont,
+                   data = data, 
+                   txName = 'A2', 
+                   response = y,
+                   fSet = fSet,
+                   iter = 0L)
+@
+ 
+Notice the structure of the object returned by the
+statistical analysis tools of Subsection \ref{methods}. 
+To illustrate, let's consider \function{coef}.
+<<>>=
+cfs <- coef(fitQ2_SM)
+@
+A named list is returned, 
+<<>>=
+is(cfs,'list')
+@
+the elements of which indicate the subset.
+<<>>=
+names(cfs)
+@
+For each subset, there is a second list giving
+the estimated coefficients for the combined model (\$Combined). 
+<<>>=
+cfs[["A"]]
+@
+All methods
+described in Subsection \ref{methods} will follow this format when the
+model objects are built using \function{buildModelObjSubset}.
+
+The structure of the first-stage analysis does not change:
+<<eval=FALSE, echo=TRUE>>=
+<<FSModels>>
+
+fitQ1_SM <- qLearn(moMain = moMainFS, 
+                   moCont = moContFS,
+                   data = data, 
+                   txName = 'A1', 
+                   response = fitQ2_SM,
+                   iter = 100L)
+@
+ 
+
+\subsection{Interactive Q-learning}
+
+The first modeling step in the $Q$-learning algorithm is a standard
+multiple regression problem to which common model building and model
+checking techniques can be applied to find a parsimonious, well-fitting
+model.  The second modeling
+step requires modeling the conditional expectation of
+the value function, $V_{k+1}(\barx{k+1},\bara{k})$. If we assume binary
+treatment options coded as $\{-1,1\}$, this expectation can be written as
+\begin{eqnarray}
+  \label{q1fn}
+  Q_{k}(\barx{k},\bara{k-1}) &=& 
+  \mathbb{E}( V_{k+1}(\barX{k},X_{k+1}, \barA{k} )
+  \mid \barX{k}=\barx{k},\barA{k}=\bara{k} )
+  \nonumber \\ 
+  &=& \mathbb{E} ( \mom{k+1}(\barX{k}, X_{k+1}, \barA{k}; \hat{\gamma}_{k+1}) + 
+                  |\moc{k+1}(\barX{k}, X_{k+1}, \barA{k}; \hat{\eta}_{k+1})|
+		  \mid \barX{k}=\barx{k},\barA{k}=\bara{k} ). \nonumber \\
+  &&
+\end{eqnarray}
+Due to the
+absolute value function, $V_{k+1}(\barX{k},X_{k+1}, \barA{k} )$ is a 
+nonsmooth, nonmonotone 
+transformation of $\moc{k+1}(\barX{k+1}, \barA{k} )$. Thus, the model
+ is generally a complex, nonlinear function of $\barX{k}, \barA{k}$. 
+In addition, the nonsmooth,
+nonmonotone $\max$ operator
+ leads to difficult nonregular inference for the parameters
+that index the first stage $Q$-function \citep{Rob:04,
+  Cha+etal:10, Lab+etal:10, Son+etal:11}. $IQ$-learning was developed
+as an alternative to $Q$-learning that
+addresses the applied problem of building good models
+and avoids model misspecification for a large class of 
+generative models. The $IQ$-learning methods implemented
+in \pkg{DynTxRegime} are valid only for two decision point settings with
+binary treatment options coded as $\{-1,1\}$. Though the choice of
+treatment coding $\{-1,1\}$ vs. $\{0,1\}$ is one of convenience, 
+using $\{-1,1\}$ allows one to define the optimal treatment as the
+sign of the contrast component. This choice is required for the
+$IQ$-learning implementation.
+
+$IQ$-learning differs from $Q$-learning in the order in which the
+maximization step is performed.  In $IQ$-learning, 
+the maximization step is delayed, enabling all
+modeling to be performed \emph{before} this nonsmooth, nonmonotone
+transformation.  This reordering of modeling and maximization steps
+facilitates the use of standard, \emph{interactive} model-building
+techniques because all terms to be modeled are 
+smooth and monotone transformations of the data. For a large class of
+generative models, $IQ$-learning consistently estimates the
+first-stage $Q$-function, resulting in a higher-quality estimated
+decision rule \citep{Linn:14}. 
+
+Both $IQ$- and $Q$-learning implement the same second-stage regression. 
+In the $IQ$-learning framework, the first-stage $Q$-function is
+defined as
+\begin{equation}
+\label{iq1fn}
+  Q_{1}(x_{1}, a_{1}) = \mathbb{E}( 
+  \mom{2}(X_{1}, X_{2}, A_{1}) |
+    X_{1}=x_{1}, A_{1}=a_{1}) + \int |z|f(z \mid X_{1}=x_{1}, A_{1}=a_{1})dz, 
+  \end{equation}
+  where $f(\cdot \mid X_{1}=x_{1}, A_{1}=a_{1})$ is the conditional distribution of
+  the contrast function $\moc{2}(X_{1}, X_{2}, A_{1})$ given
+  $X_{1}=x_{1}, A_{1}=a_{1}$. Equation (\ref{iq1fn}) is
+  equivalent to the representation of $Q_{1}$ in Eq. (\ref{q1fn});
+  the conditional expectation has been split into two separate
+  expectations and the second has been written in integral form.
+  Instead of modeling the conditional expectation in Eq. (\ref{q1fn})
+  directly, $IQ$-learning separately models $\mathbb{E}( \mom{2}(X_{1}, X_{2}, A_{1}
+ | X_{1}=x_{1}, A_{1}=a_{1})$ and $f(\cdot \mid
+  X_{1}=x_{1}, A_{1}=a_{1})$. Although $IQ$-learning trades one 
+  modeling step for two, splitting up the conditional
+  expectation in Eq. (\ref{q1fn}) is advantageous because the terms that
+  require modeling are now smooth, monotone functionals of the
+  data. The maximization occurs when the integral in Eq. (\ref{iq1fn}) is
+  computed, which occurs after the conditional density $f(\cdot \mid
+  X_{1}=x_{1}, A_{1}=a_{1})$ has been estimated.  The $IQ$-learning algorithm is 
+  described next.
+  
+  \noindent {\bf $IQ$-learning Algorithm:}
+  \begin{center}
+    \begin{tabular}{|l l |}
+      \hline
+      & \\
+      IQ1. Modeling: & Regress $Y$ on $\barX{2}, \barA{2}$ to obtain \\ 
+      & $Q_{2} (\barx{2}, \bara{2}; \hat{\beta}_{2}) =
+      \mom{2}(\barx{2}, a_{1};\hat{\gamma}_2) + 
+      a_{2} ~ \moc{2}(\barx{2}, a_{1};\hat{\eta}_2)$.  \\ 
+      & \\
+      IQ2. Modeling: & Regress observed data
+      $ \left\{\mom{2}( \barX{2,i}, A_{1,i}; \widehat{\gamma}_{2})\right\}_{i=1}^{n}$ on 
+      $ \{X_{1,i}, A_{1,i}\}_{i=1}^{n}$ \\
+      & to obtain an estimator 
+      $L(x_{1},a_{1};\hat{\beta}_{1M})$ of \\
+      &
+      $\mathbb{E}(\mom{2}(X_{1},X_{2},A_{1}; \hat{\gamma}_{2}) | X_{1}=x_1,
+      A_{1}=a_1)$. \\ 
+      & $L(x_{1},a_{1};\hat{\beta}_{1M}) = 
+        \mom{1M}(x_1;\hat{\gamma}_{1M}) + 
+          a_{1}~ \moc{1M}(x_1;\hat{\beta}_{1M})$. \\
+      & \\
+      IQ3. Modeling: & Use $\{ \moc{2}(\barX{2,i}, A_{1,i}; 
+      \widehat{\beta}_{2}),
+      X_{1,i}, A_{1,i}) \}_{i=1}^{n}$ to obtain \\
+      & an estimator
+      $F(z, x_{1},a_{1}; \hat{\beta}_{1\sigma}, \hat{\beta}_{1C})$ of 
+      $f(z \mid X_{1}=x_{1}, A_{1}=a_{1})$. \\ 
+      & \\
+      IQ4. Maximization: & Combine the above estimators to form \\  
+      & $Q_{1}(x_{1}, a_{1};\hat{\beta}_{1})$ =
+      $L(x_{1},a_{1};\hat{\beta}_1^M)$ + $ \int |z|
+      F(z, x_{1}, a_{1}; \hat{\beta}_{1\sigma}, \hat{\beta}_{1C})dz$. \\ 
+      & \\
+      \hline
+    \end{tabular}
+  \end{center}
+
+\noindent\textbf{Remark about density estimation in IQ3}
+
+Step IQ3 in the $IQ$-learning algorithm requires estimating a
+one-dimensional conditional density. \citet{Linn:14} 
+accomplish this using mean-variance, location-scale estimators of
+$f(\cdot \mid X_{1}=x_1, A_{1}=a_1)$   of the form
+
+\begin{equation*}
+\label{locationScaleDensity}
+F(z , x_1, a_1; \hat{\beta}_{1\sigma}, \hat{\beta}_{1C}) = \frac{1}{
+\sigma(x_1, a_1; \hat{\beta}_{1\sigma})}
+\widehat{\phi}\left(
+\frac{z - C(x_1, a_1; \hat{\beta}_{1C})}
+{\sigma(x_1, a_1; \hat{\beta}_{1\sigma})} \right),
+\end{equation*}
+
+where $C(x_1, a_1;\hat{\beta}_{1C}) = 
+  \mom{1}^C(x_1;\hat{\gamma}_{1C}) + a_{1} \moc{1}^C(x_1;\hat{\eta}_{1C})$ \\
+ is an estimator of $C(x_1, a_1)=
+\mathbb{E}\left\{ \moc{2}(\barX{2}, A_{1}) \mid X_{1}=x_1, A_1 = a_1\right\}$,
+$\sigma^2(x_1, a_1; \beta_{\sigma})$ is an estimator of $\sigma^2(x_1, a_1)
+= \mathbb{E}\left\{(\moc{2}(\barX{2}, A_{1}) - 
+C(X_1, A_1))^2\mid
+X_{1}=x_1,
+  A_1=a_1\right\}$, and $\widehat{\phi}$ is an estimator of the density of
+the standardized residuals $\left\{ \moc{2}(\barx{2}, a_{1}; \hat{\beta}_2) - 
+C(x_1, a_1)
+\right\} / \sigma(x_1, a_1)$. 
+
+Currently, \pkg{DynTxRegime}
+implements mean-variance modeling steps \citep{Car+Rup:88} to estimate $f(\cdot \mid
+X_1=x_1, A_1=a_1)$ with the option of using a standard normal density or
+empirical distribution estimator for $\widehat{\phi}$. 
+
+\subsubsection{IQ-learning functions}
+
+There are four IQ-learning functions in the \pkg{DynTxRegime}
+package, one for each of the $k$ modeling steps IQ1-IQ4. The
+structures of the calls are very similar and are presented in
+combination below.
+
+\begin{verbatim}
+iqLearnSS(..., moMain, moCont, data, response, txName, iter = 0L)
+iqLearnFSM(..., moMain, moCont, data, response, txName, iter = 0L)
+iqLearnFSC(..., moMain, moCont, data, response, txName, iter = 0L)
+iqLearnFSV(..., object, moMain=NULL, moCont=NULL, data=NULL, iter=0L)
+\end{verbatim}
+\begin{itemize}
+
+\item{\argument{moMain}:  }{an object of class \class{modelObj}
+created by  \function{buildModelObj} of  \pkg{modelObj}. 
+This object defines the model and regression/prediction functions for the main
+effects component of the model, 
+$\mu_k(\barx{k}, \bara{k-1}; \gamma_k)$.
+Predictions must be returned
+on the scale of the response.}
+
+\item{\argument{moCont}:  }{an object of class \class{modelObj}
+created by  \function{buildModelObj} of  \pkg{modelObj}. 
+This object defines the model and regression/prediction functions for the 
+contrast functions of the model, $C_k(\barx{k}, \bara{k-1};\beta_k)$.
+Predictions must be returned
+on the scale of the response.}
+
+\item{\argument{object}: }{
+an object of class \class{DynTxRegime}. The value object returned
+by \function{iqLearnFSC}}
+
+\item{\argument{data}:  }{an object of class \class{data.frame}.
+The covariates and treatments. Treatments must be
+of class \class{integer} coded as $\{-1,1\}$.}
+
+\item{\argument{response}: }{For \function{iqLearnSS}, an object of class 
+\class{vector}; the final outcome of interest.
+For \function{iqLearnFSM} and \function{iqLearnFSC},
+an object of class \class{DynTxRegime}; the value object returned from
+\function{iqLearnSS}.
+For \function{iqLearnFSV},
+an object of class \class{DynTxRegime}; the value object returned from
+\function{iqLearnFSC}.}
+
+\item{\argument{txName}: }{an object of class \class{character} specifying 
+the column header of the treatment variable in \argument{data}.}
+
+\item{\argument{iter}: } {an object of class \class{integer}.
+If \argument{iter} $ = 0$, the model parameters of 
+$Q_{k}(\barx{k},\bara{k}; \beta_{k})$ will be obtained using a single regression analysis,
+i.e., input arguments \argument{moMain} and \argument{moCont} will
+be combined into a single model for $Q_{k}(\barx{k},\bara{k}; \beta_{k})$. 
+By default, the parameter estimates will be obtained using
+the \proglang{R} function specified in \argument{moMain}.
+If \argument{moMain} = NULL, the methods specified in \argument{moCont}
+will be used. 
+
+If \argument{iter} $ \ge 1$, \argument{moMain} and \argument{moCont}
+will be fit separately using an iterative algorithm. 
+The iterative algorithm is as follows: 
+\begin{eqnarray}
+(1) && Y = Y_{main} + Y_{cont} \nonumber \\
+(2) && \hat{Y}_{cont} = 0 \nonumber \\
+(3) && Y_{main} = Y - \hat{Y}_{cont} \nonumber \\
+(4) && \mathrm{fit} ~ Y_{main} \sim moMain \nonumber \\
+(5) && Y_{cont} = Y-\hat{Y}_{main} \nonumber \\
+(6) && \mathrm{fit} ~ Y_{cont} \sim A * moCont \nonumber \\
+(7) && \mathrm{Repeat~steps~(3) - (6)} \nonumber \\
+    && \mathrm{until~convergence~or~a~maximum~number~of~iterations.} \nonumber
+\end{eqnarray}
+\argument{iter} indicates
+the maximum number of iterations to be used to attain convergence.}
+
+\end{itemize}
+
+\subsubsection{Analysis}
+We will use the \argument{bmiData} dataset for the examples in this section.
+Previously, we imported the dataset into the working environment and
+defined the outcome of interest: $y$, the negative percent change in BMI at 
+month 12 from baseline.
+Before starting the $IQ$-learning analysis, we need to recast the treatment
+arguments as integers in the set $\{-1,1\}$. 
+<<>>=
+data <- bmiData
+data$A1[ bmiData$A1=="MR" ] <-  1
+data$A1[ bmiData$A1=="CD" ] <- -1
+data$A2[ bmiData$A2=="MR" ] <-  1
+data$A2[ bmiData$A2=="CD" ] <- -1
+data$A1 <- as.integer(data$A1)
+data$A2 <- as.integer(data$A2)
+@
+
+{\bf Second-stage regression (Step IQ1)}
+
+As for $Q$-learning, the first step in the $IQ$-learning algorithm is to 
+model the response as a function of second-stage history arguments and treatment. 
+For simplicity, we will use the same models as those assumed in the $Q$-learning
+section. Namely,
+<<>>=
+<<SSModels>>
+@
+
+Again, we explicitly indicate
+that the predictions must be returned on the scale of the response 
+(type=`response'), as is required for the $IQ$-learning method.
+
+For the second-stage regression, \argument{response} is $y$, and the
+analysis is initiated as follows:
+<<>>=
+fitIQ2 = iqLearnSS(moMain = moMainSS, 
+                   moCont = moContSS, 
+                   data = data,
+                   response = y, 
+                   txName = 'A2', 
+                   iter = 0L)
+@
+An object 
+that inherits from class \class{DynTxRegime} is returned.
+<<>>=
+is(fitIQ2,'DynTxRegime')
+@
+
+{\bf Main effects function regression (Step IQ2)}
+
+The next step in the $IQ$-learning algorithm is to model the
+conditional expectation of the main effects term given first-stage
+history arguments and treatment.  We will accomplish this by regressing
+$\left\{\mom{2}(\barX{2,i}, A_{1,i};\widehat{\gamma}_{2})\right\}_{i=1}^{n}$ on a linear
+function of $\{(X_{1,i}, A_{1,i})\}_{i=1}^{n}$ using the function
+\function{iqLearnFSM}. If desired,
+the estimated main effects of the second-stage,
+$\left\{\mom{2}(\barX{2,i}, A_{1,i};\widehat{\gamma}_{2})\right\}_{i=1}^{n}$, 
+can be retrieved by 
+\function{fittedMain}; though, this is not necessary
+for the algorithm. 
+%50
+<<>>=
+head(fittedMain(fitIQ2))
+@
+The \argument{response} 
+is the value object returned by the second-stage analysis, \function{iqLearnSS},
+and step IQ2 of the $IQ$-learning algorithm is initiated as:
+<<>>=
+<<FSModels>>
+
+fitIQ1main <- iqLearnFSM(moMain = moMainFS, 
+                         moCont = moContFS, 
+                         data = data,
+                         response = fitIQ2, 
+                         txName = 'A1', 
+                         iter = 100L)
+@
+An object inheriting from class \class{DynTxRegime} is returned.
+<<>>=
+is(fitIQ1main,'DynTxRegime')
+@
+
+{\bf STEP IQ3: contrast function density modeling}
+
+\vspace{2mm}
+
+The final modeling step in $IQ$-learning is to model the
+conditional density of the contrast function given first-stage history
+arguments and treatment.  We begin by 
+modeling the conditional mean of the contrast function using 
+\function{iqLearnFSC};
+$C(x_1, a_1;{\beta}_{1C}) = 
+  \mom{1C}(x_1;{\gamma}_{1C}) + a_{1} \moc{1C}(x_1;{\eta}_{1C})$.
+The estimated contrast function can be retrieved using
+\function{fittedCont}; though it is not necessary for the analysis.
+<<>>=
+head(fittedCont(fitIQ2))
+@
+The IQ3 step of the $IQ$-learning algorithm is
+<<>>=
+moMainFSc <- buildModelObj(model = ~ gender + race + parentBMI + baselineBMI,
+                           solver.method = 'lm',
+                           predict.method = 'predict.lm',
+                           predict.args = list(type='response'))
+
+moContFSc <- buildModelObj(model = ~ gender + parentBMI + baselineBMI,
+                           solver.method = 'lm',
+                           predict.method = 'predict.lm',
+                           predict.args = list(type='response'))
+
+fitIQ1cm <- iqLearnFSC(moMain = moMainFSc, 
+                       moCont = moContFSc, 
+                       data = data,
+                       response = fitIQ2, 
+                       txName = 'A1', 
+                       iter = 100L)
+@
+An object inheriting from class \class{DynTxRegime} is returned.
+<<>>=
+is(fitIQ1cm,'DynTxRegime')
+@
+
+After fitting the model for the conditional mean of the contrast
+function, we must specify a model for the conditional variance of the
+residuals, $\sigma^2$. Standard approaches can be used to determine if a constant
+variance fit is sufficient.  If so, 
+<<>>=
+fitIQ1var = iqLearnFSV(fitIQ1cm)
+@
+estimates the common standard deviation and
+can be retrieved using \function{stdDev}.
+<<>>=
+stdDev(fitIQ1var)
+@
+If the variance is thought to be non-constant across
+histories $ X_{1} $ and/or treatment $A_{1}$,  a log-linear model
+for the squared residuals can be used. 
+<<>>=
+moMainFSv <- buildModelObj(model = ~ gender + race + parentBMI + baselineBMI,
+                           solver.method = 'lm',
+                           predict.method = 'predict.lm',
+                           predict.args = list(type='response'))
+
+moContFSv <- buildModelObj(model = ~ parentBMI + baselineBMI,
+                           solver.method = 'lm',
+                           predict.method = 'predict.lm',
+                           predict.args = list(type='response'))
+fitIQ1var <- iqLearnFSV(object=fitIQ1cm,
+                        moMain = moMainFSv,
+                        moCont = moContFSv,
+                        data = data,
+                        iter = 0)
+
+is(fitIQ1var,'DynTxRegime')
+@
+The final step in the conditional density modeling process is to
+choose between the normal and empirical density estimators, $\hat{\phi}$.  
+Based on
+empirical experiments, \citet{Linn:14}
+recommend choosing the empirical estimator by default, as not much is
+lost when the true density is normal.  
+
+\function{qqPlot} can
+be used to inform the choice of density estimator. 
+The object returned by the log-linear \function{iqLearnFSV} function
+can be plotted to obtain a normal QQ-plot of the
+standardized residuals, displayed in Figure~\ref{resids}.  If the
+observations deviate from the line, \argument{dens}=`nonpar' should be
+used in the final $IQ$-learning step, IQ4.
+\begin{figure}[here!]
+\begin{center}
+<<fig=TRUE, echo=FALSE>>=
+qqPlot (fitIQ1var)
+@
+ 
+\end{center}
+\caption{Normal QQ-plot of the standardized residuals obtained from
+  the contrast mean and variance modeling steps.}\label{resids}
+\end{figure}
+
+\vspace{5mm}
+
+\noindent {\bf STEP IQ4: combine first-stage estimators}
+
+\vspace{2mm}
+
+For the first-stage $IQ$-learning, 
+the function \function{optTx} has four inputs: the previous three
+first-stage objects and the method to use for the density estimator,
+either `norm' or `nonpar'.
+It combines all of the first-stage modeling steps to estimate the
+first-stage optimal decision rule.  
+%60
+<<>>=
+optIQ1_testSet = optTx( x=fitIQ1main, y=fitIQ1cm, z=fitIQ1var, dens="nonpar" )
+head(optIQ1_testSet$qFunctions)  
+head(optIQ1_testSet$optimalTx)  
+@
+A vector of estimated optimal first-stage treatments for patients in
+the study is returned. To retrieve the estimated second-stage
+optimal treatments, only the second-stage object is required.
+<<>>=
+optIQ2_testSet = optTx( x=fitIQ2 )  
+head(optIQ2_testSet$qFunctions)  
+head(optIQ2_testSet$optimalTx)  
+@
+
+\vspace{5mm}
+
+\subsubsection{Post-Analysis Tools}
+All of the $IQ$-learning return object of class \class{DynTxRegime},
+to which the standed analysis tools discused in Section \ref{methods}
+can be applied. For the structure of the objects returned by those methods,
+see Table \ref{table:QlistNames}.
+
+\paragraph{Recommend treatment with optTx}
+
+\vspace{2mm}
+
+After estimating the optimal regime using the $IQ$-learning algorithm,
+the function \function{optTx} can be used to recommend
+treatment for new patients.  
+To determine the recommended  first-stage treatment for our previously
+defined new patient
+<<echo=false>>=
+newpatient <- newpatient[,1:4,drop=FALSE]
+@
+<<>>=
+newpatient
+@
+<<>>=
+optIQ1 = optTx(x = fitIQ1main, 
+               y = fitIQ1cm, 
+               z = fitIQ1var,
+               dens = "nonpar", 
+               newdata = newpatient)
+optIQ1
+@
+As displayed above, a list is returned by \function{optTx} that includes
+the values of the first-stage $Q$-function when $A_{1} = 1$ 
+and $A_{1}
+= -1$ (\argument{\$qFunctions}) as well as the recommended first-stage
+treatment for that patient, \argument{\$optimalTx}. 
+
+As before, assume that our new patient is given the recommended first-stage 
+treatment and the patient's BMI is measured to be 25 at month 4.
+<<>>=
+newpatient <- cbind(newpatient, "A1"=optIQ1$optimalTx, "month4BMI" = 25)
+@
+The recommended second stage treatment is
+<<>>=
+optIQ2 = optTx(x = fitIQ2, newdata = newpatient)
+optIQ2
+@
+Again, a list is returned by \function{optTx} that includes
+the value of the second-stage $Q$-function when $A_{2} = 1$  
+and $A_{2}
+= -1$ (\argument{\$qFunctions}) as well as the recommended second-stage
+treatment for that patient, \argument{\$optimalTx}. 
+ 
+\paragraph{Estimating Regime Value}
+
+We may wish to compare our estimated optimal regime to a standard of
+care or constant regime that recommends one treatment for all
+patients.  One  way to
+compare regimes is to estimate the value function. A plug-in estimator
+for $V^{{\boldsymbol g}}$ is
+\begin{equation*}
+  \widehat{V}^{{\boldsymbol g}} \triangleq \frac{\sum_{i=1}^{n} Y_{i} 
+\mathbbm{1}\{A_{1i}
+    = g_{1}(x_{1i})\} \mathbbm{1}\{A_{2i} =
+    g_{2}(\barx{2i},a_{1i})\}}{\sum_{i=1}^{n} \mathbbm{1}\{A_{1i}
+    = g_{1}(x_{1i})\} \mathbbm{1}\{A_{2i} = g_{2}(\barx{2i},a_{1i})\}},
+\end{equation*}
+where $Y_i$ is the $i^{\hbox{\scriptsize th}}$ patient's response,
+  $(a_{1i}, a_{2i})$ the randomized treatments and $(x_{1i},
+  x_{2i})$ the observed covariates. This estimator is a weighted
+  average of the  outcomes observed from
+patients in the trial who received treatment in accordance with the
+ regime $g=(g_1,g_2)$. It is more commonly known as the
+ Horvitz-Thompson estimator \citep{Hor+Tho:52}. 
+ Function \function{plugInValue} estimates the value of a
+ regime using the plug-in estimator and also returns value estimates
+ corresponding to all non-dynamic regimes \argument{\$fixedReg}. 
+\begin{verbatim}
+plugInValue(optTx1, optTx2, response, tx1, tx2)
+\end{verbatim}
+\begin{itemize}
+\item{\argument{optTx1} }{an object of class \class{vector}. The
+first-stage treatments assigned by the regime of interest.}
+\item{\argument{optTx2} }{an object of class \class{vector}. The
+second-stage treatments assigned by the regime of interest.}
+\item{\argument{response} }{ an object of class \class{vector}.
+The response vector.}
+\item{\argument{tx1} }{an object of class \class{vector}. The
+first-stage treatments received by patients in the trial.}
+\item{\argument{tx2} }{an object of class \class{vector}. The
+second-stage treatments received by patients in the trial.}
+\end{itemize}
+<<>>=
+estVal = plugInValue(optTx1 = optIQ1_testSet$optimalTx, 
+                     optTx2 = optIQ2_testSet$optimalTx, 
+                     response = y, 
+                     tx1 = data$A1,   
+                     tx2 = data$A2)
+estVal
+@
+
+\section{Doubly Robust Methods}
+
+In $Q$-learning and its variants, the optimal treatment is predicted using the 
+postulated models for the $Q$-functions, thus the resulting estimated 
+regime may be far from $g^{opt}$
+if these models are misspecified. 
+
+Doubly robust estimators combine
+inverse probability weighting by a propensity score with regression
+modeling of the relationships between covariates and outcome
+for each treatment. The doubly robust estimator will be
+consistent if either the propensity score or the treatment specific
+outcome regression models are correct; thus, one
+trades a possible loss of precision in using the doubly robust
+estimator for this additional protection.
+
+The theoretical framework of the doubly robust estimator is beyond
+the scope of this vignette. We present it in the following subsections 
+simply to solidify
+notation and vocabulary. The reader is referred to the 
+following original manuscripts for details.
+
+
+\citet{Zhang1DP:12} and \citet{ZhangKDP:13} considered the posited 
+regression
+model as a mechanism for defining a class of induced treatment
+regimes. These methods estimate the optimal regime within a prespecified
+class by directly maximizing a doubly robust augmented inverse
+probability weighted estimator (AIPWE) of the population mean
+outcome across all regimes in the class. The implementation of
+this method is described in Subsections \ref{single} and \ref{sequential}.
+
+\citet{ZhangClass:12} proposed a general framework for
+estimating the optimal treatment regime that recasts the
+original problem of finding the optimal treatment regime as
+a weighted classification problem. Within this framework,
+the class of treatment regimes does not need to be prespecified
+and is identified in a data-driven way by minimizing an
+expected weighted mis-classification error. 
+The estimation of mean outcome under a regime is separate
+from the optimization for identifying the form of the treatment
+regime. Though the framework does not limit the form of the estimator, 
+only the AIPWE and IPWE estimators presented in 
+\citet{Zhang1DP:12} are implemented in \function{optimalClass}. 
+
+\subsection{Doubly Robust Estimation for a Single Decision Point}
+\label{single}
+
+In this method, the problem of estimating the optimal
+treatment regime is recast as a missing data problem.  A 
+class of regimes parameterized in $\nu$ is defined as $g(X,\nu)$.
+As discussed previously in Section 2, 
+we can define the set of potential outcome associated with $g$ to be
+$W_{g} = \{X, Y^{*}(g_{\nu})\}$, where $X$ is the baseline
+covariate information and $Y^{*}(g_{\nu})$ the outcome if the
+patient were to receive treatment $g(X,\nu)$.
+For fixed $\nu$, the ``missingness" is quantified as $C_{\nu}$, where
+$C_{\nu} = \sum_{a \in \Phi(X)} I\{A - g(X,\nu)\}$.
+When $C_{\nu} = 1$,
+the potential outcome under treatment regime $g(X,\nu)$ is observed.
+If $C_{\nu}=0$,
+$Y^{*}(g_{\nu})$ is ``missing." In this way, one can conceive
+of ``full data" $W_{g} = \{X, Y^{*}(g_{\nu})\}$ and ``observed data"
+$\{C_{\nu}, C_{\nu} Y^{*}(g_{\nu}),X\} = \{C_{\nu}, C_{\nu} Y,X\}$.
+Let $\pi(a,X) = $ pr$(A=a \mid X)$ denote the
+propensity score for treatment $a$. It is then straightforward
+to obtain pr$(C_{\nu}=1 \mid X) = \pi(g(X,\nu),X)$
+
+Parametric models, $\pi(a,X;\gamma)$, are posited for the
+propensity of treatment, e.g., using logistic regression.
+
+Following the missing data analogy, a simple estimator for 
+$\mathbb{E}\{Y^{*}(g_{\nu})\}$ for fixed $\nu$ is the 
+inverse probability weighted estimator (IPWE) given by
+
+\begin{equation}
+IPWE(\nu) = n^{-1} \sum_{i=1}^{n}
+\frac{C_{\nu,i} Y_i}{\pi(g(X_{i},\nu), X_i;\hat{\gamma})}.
+\end{equation}
+This estimator is consistent for $\mathbb{E}\{Y^{*}(g_{\nu})\}$ if
+$\pi(A,X;\gamma)$ is correctly
+specified, but may not be otherwise.
+
+Following \citet{RRZ94} and \citet{CTD09},
+an alternative estimator that offers protection against such
+misspecification and improved efficiency is the doubly robust 
+augmented inverse probability weighted estimator (AIPWE)
+\begin{equation}
+AIPWE(\nu) = n^{-1} \sum_{i=1}^{n} \left\{
+\frac{ C_{\nu,i} Y_i }{ \pi(g(X_{i},\nu), X_i;\hat{\gamma})} -
+\frac{ C_{\nu,i} - \pi(g(X_{i},\nu), X_i;\hat{\gamma})}
+{\pi(g(X_{i},\nu), X_i;\hat{\gamma})} m(g(X_{i},\nu),X_{i};\hat{\beta})
+\right\}.
+\label{aipwe:sdp}
+\end{equation}
+In Eq. (\ref{aipwe:sdp}), $m(A,X;\hat{\beta})$ is a model for $\mathbb{E}(Y \mid A, X)$,
+and $\hat{\beta}$ is an appropriate estimator for $\beta$.
+This estimator is consistent for $\mathbb{E}\{Y^{*}(g_{\nu})\}$
+if either of $\pi(A,X;\gamma)$ or $m(A,X;\beta)$, but not both,
+is misspecified.
+
+The algorithm for the doubly robust, single-decision-point method is as follows:
+
+\noindent {\bf Doubly Robust Algorithm:}    
+\begin{center}
+  \begin{tabular}{|c l p{4.5in} |}
+    \hline
+    &&\\
+    DR1. & Modeling: & Regress $A$ on $X$ to obtain \\ 
+         &           & $\pi(A, X; \hat{\gamma})$. \\ 
+    &&\\
+    \multicolumn{3}{|l|}{For a fixed estimate of $\nu$} \\
+    & DR2.  Modeling: & Regress $Y$ on $X$ and $A$ to obtain \\ 
+         &           & $m(a, x; \hat{\beta}) = \mu(x;\hat{\gamma}) + 
+                       a~\mathcal{C}(x;\hat{\eta})$. \\ 
+    && \\
+    & DR3.  Estimator: & Use $m(g(X,\nu), X; \hat{\beta})$ and 
+                        $\pi(g(X,\nu), X; \hat{\gamma})$ \\
+    &                  & to estimate 
+                        $AIPWE(\nu)$ or $IPWE(\nu)$\\
+    && \\
+    & DR4.  Update:  & Update $\nu$, repeat DR2-DR4; \\
+         &          & terminate at convergence of estimator.\\
+    &&\\
+    \hline
+  \end{tabular}
+\end{center}
+
+Both the IPWE and AIPWE estimators are non-smooth functions in $\nu$;
+accordingly, the use of traditional optimization
+methods to maximize these quantities in $\nu$ can be problematic.
+In \pkg{DynTxRegime}, the parameters of the prespecified treatment regime
+are optimized using a genetic algorithm, \pkg{rgenoud} (Mebane and Sekhon, 2011).
+
+
+
+\subsubsection{The \function{optimalSeq} function}
+Function 
+\function{optimalSeq} implements the single-decision-point, doubly-robust 
+method of \citet{Zhang1DP:12}. The same function is used for 
+the multiple-decision-points setting and will be discussed in
+Subsection \ref{sequential}.
+\begin{verbatim}
+optimalSeq(moPropen, moMain, moCont, data, response, txName, regimes,
+           fSet = NULL, refit=FALSE, iter = 0L)
+\end{verbatim}
+\begin{itemize}
+
+\item{\argument{moPropen}:  }{an object of class \class{modelObj}
+created by  \function{buildModelObj} of \pkg{modelObj}.
+This object defines the model and regression/prediction functions
+to be used 
+for the propensity for treatment, 
+$\pi(A, X; \gamma)$.
+When defining the modeling object, the prediction method must
+return predictions on the scale of the response.}
+
+\item{\argument{moMain}:  }{an object of class \class{modelObj}
+created by  \function{buildModelObj} of \pkg{modelObj}.
+This object defines the model and regression/prediction functions
+to be used 
+for the main
+effects component of the outcome regression model, 
+$\mu(X; \gamma)$.
+When defining the modeling object, the prediction method must
+return predictions on the scale of the response.}
+
+\item{\argument{moCont}:  }{an object of class \class{modelObj}
+created by  \function{buildModelObj} of \pkg{modelObj}.
+This object defines the model and regression/prediction functions
+to be used 
+for the contrasts
+component of the outcome regression model, 
+$\mathcal{C}(X; \eta)$.
+When defining the modeling object, the prediction method must
+return predictions on the scale of the response.}
+
+
+\item{\argument{data}:  }{an object of class \class{data.frame}.
+The covariates and treatments
+of the training set. Treatments can be factors
+or integers. }
+
+\item{\argument{response}: }{an object of class \class{vector}.
+The final outcome of interest.}
+
+\item{\argument{txName}: }{an object of class \class{character} specifying 
+the column header of the treatment variable in \argument{data}.}
+
+\item{\argument{regimes}: } {an object of class \class{function}.
+This function defines the parameterized treatment regime, 
+$g(X,\nu)$.}
+
+\item{\argument{fSet}: } {This argument cannot be set for the 
+single-decision-point case
+but will be discussed in detail in Subsection \ref{subsetModeling2}.}
+
+\item{\argument{refit}: }{This argument cannot be set for the 
+single-decision-point case
+but will be discussed in detail in Subsection \ref{subsetModeling2}.}
+
+\item{\argument{iter}: } {an object of class \class{integer}.
+If \argument{iter} $ = 0$, the model parameters of 
+$m(a,x; \beta)$ will be obtained using a single regression analysis,
+i.e., input arguments \argument{moMain} and \argument{moCont} will
+be combined into a single model for $m(a,x; \beta)$. 
+By default, the parameter estimates will be obtained using
+the \proglang{R} function specified in \argument{moMain}.
+If \argument{moMain} = NULL, the methods specified in \argument{moCont}
+will be used. 
+
+If \argument{iter} $ \ge 1$, \argument{moMain} and \argument{moCont}
+will be fit separately using an iterative algorithm. 
+The iterative algorithm is as follows: 
+\begin{eqnarray}
+(1) && Y = Y_{main} + Y_{cont} \nonumber \\
+(2) && \hat{Y}_{cont} = 0 \nonumber \\
+(3) && Y_{main} = Y - \hat{Y}_{cont} \nonumber \\
+(4) && \mathrm{fit} ~ Y_{main} \sim moMain \nonumber \\
+(5) && Y_{cont} = Y-\hat{Y}_{main} \nonumber \\
+(6) && \mathrm{fit} ~ Y_{cont} \sim A * moCont \nonumber \\
+(7) && \mathrm{Repeat~steps~(3) - (6)} \nonumber \\
+    && \mathrm{until~convergence~or~a~maximum~number~of~iterations.} \nonumber
+\end{eqnarray}
+\argument{iter} indicates
+the maximum number of iterations to be used to attain convergence.}
+
+\item{\argument{\dots} }{Additional arguments to be passed to \function{genoud}.}
+\end{itemize}
+
+
+\subsubsection{Analysis}
+To illustrate this method, we will consider only the second-stage of 
+our \argument{bmiData} dataset. Specifically, the treatment argument is 
+$A=$\argument{A2} and the baseline covariates are \\
+$X=\{ \argument{gender},
+      \argument{race},
+      \argument{parentBMI},
+      \argument{baselineBMI},
+      \argument{month4BMI}, \argument{A1}\}$.
+
+The first step is to specify the model for the propensity for treatment,
+$\pi(A, X; \gamma)$. Our treatment argument will be categorical,
+<<>>=
+data <- bmiData
+data$A1 <- as.factor(data$A1)
+data$A2 <- as.factor(data$A2)
+@
+and we specify a logistic regression model. The model object for
+$\pi(A, X; \gamma)$ must be created using \function{buildModelObj} of
+\pkg{modelObj}.
+<<>>=
+moPropen <- buildModelObj(model = ~1,
+                          solver.method = 'glm',
+                          solver.args = list('family'='binomial'),
+                          predict.method = 'predict.glm',
+                          predict.args = list('type'='response'))
+@
+
+Note that the default scale of the prediction for \function{predict.glm}
+is on the scale of the linear predictors, not
+the response argument. Thus, argument \argument{type}
+must be changed from its default setting.
+
+Next, we specify the model objects for the outcome regression, $m(A, X;\beta)$.
+As for $Q$-learning and $IQ$-learning, the model is specified
+as two components, one for the main effects of treatment, \argument{moMain},
+and a second for the contrast functions, \argument{moCont}.
+%70
+<<>>=
+<<SSModels>>
+@
+\argument{regimes} is the parameterized treatment regime 
+and is provided to \function{optimalSeq}
+as a user defined function. 
+The formal arguments must be the parameter names followed
+by ``data."  The function must return the vector of treatment assignments
+for the input data.
+The treatment regime in this example is 
+taken from the form of the regression model.
+<<>>=
+  regimes <- function(v1, v2, v3, data){
+               temp <- logical(nrow(data))
+               temp[data$A1 == "MR"] <- 
+                 ((v1 + v2*data$month4BMI[data$A1 == "MR"] + v3) > 0)
+               temp[data$A1 == "CD"] <- 
+                 ((v1 + v2*data$month4BMI[data$A1 == "CD"]) > 0)
+
+               tx <- rep("CD",nrow(data))
+               tx[temp] <- "MR"
+               return(tx)
+             }
+@
+The function call for the genetic algorithm is \function{genoud}.
+This method requires several additional pieces of information
+that are passed through the ellipsis of the call to \function{optimalSeq}.
+At a minimum the information should include the search space for the parameters of
+the regimes
+<<>>=
+  c1 <- rep(-10,3)
+  c2 <- rep( 10,3)
+  Domains <- cbind(c1,c2)
+@
+Starting values for the parameters
+<<>>=
+  starts <- rep(0,3)
+@
+And a population size
+<<>>=
+pop.size <- 100
+@
+
+We have opted for a VERY small population in this example to expedite the
+vignette. It is recommended that a much larger population be used, $\ge 1000$.
+
+The analysis is carried out as follows:
+<<>>=
+fitSeq <- optimalSeq(moPropen = moPropen, 
+                     moMain = moMainSS, 
+                     moCont = moContSS, 
+                     data = data, 
+                     response = y, 
+                     txName = "A2", 
+                     regimes = regimes, 
+                     pop.size = pop.size, 
+                     starting.values = starts, 
+                     Domains = Domains, 
+                     iter = 0L)
+@
+\function{optimalSeq} returns an object that inherits from
+class \class{DynTxRegime}. 
+
+The complete doubly robust algorithm is performed with the single
+call to \function{optimalSeq}.
+
+If \argument{moMain} and/or \argument{moCont} are provided in the
+call to \function{optimalSeq}, the AIPWE estimator is used. If
+both \argument{moMain}=NULL and \argument{moCont}=NULL, the IPWE
+estimator is used.
+<<>>=
+fitSeqIPWE <- optimalSeq(moPropen = moPropen, 
+                         moMain = NULL, 
+                         moCont = NULL, 
+                         data = data, 
+                         response = y, 
+                         txName = "A2", 
+                         regimes = regimes, 
+                         pop.size = pop.size, 
+                         starting.values = starts, 
+                         Domains = Domains, 
+                         iter = 0L)
+@
+
+\subsubsection{Methods}
+Standard regression analysis tools were
+discussed in Subsection \ref{methods}. Additional methods specific
+to the \function{optimalSeq} procedure follow.
+
+Function \functionSig{regimeCoef}{object}{DynTxRegime} retrieves the 
+estimated parameters of the regime.
+<<>>=
+est <- regimeCoef(fitSeq)
+est <- est/sqrt(est %*% est)
+est
+@
+
+The estimated mean potential outcome for the
+treatment regime can be retrieved using
+\functionSig{estimator}{object}{DynTxRegime}.
+<<>>=
+estimator(fitSeq)
+@
+
+Function \functionSig{genetic}{object}{DynTxRegime} retrieves
+the value object returned by the genetic algorithm \function{genoud}.
+<<>>=
+genetic(fitSeq)
+@
+
+
+The value objects returned by the outcome regression model fitting
+functions are retrieved using \functionSig{outcome}{object}{DynTxRegime}. 
+A list is returned, the structure of which depends on the 
+choice of input parameters; see Table \ref{table:QlistNames} for details.
+This method is useful when analysis tools are available
+for the fitting class that cannot be accessed from the \class{DynTxRegime} object
+%80
+<<>>=
+fitO <- outcome(fitSeq)
+names(fitO)
+head(fitted.values(fitO[[ "Combined" ]]))
+@
+
+
+Function \functionSig{propen}{object}{DynTxRegime}
+retrieves the value object returned by the propensity for treatment model fitting
+function. 
+<<>>=
+fitP <- propen(fitSeq)
+head(fitted.values(fitP))
+@
+
+The estimated optimal treatments for the training data is returned
+using \functionSigTwoD{optTx}{x}{DynTxRegime}{newdata}{missing}.
+<<>>=
+head(optTx(x=fitSeq))
+@
+
+A new dataset can be included in the call to estimate the
+optimal treatment for new patients:
+\functionSigTwoD{optTx}{x}{DynTxRegime}{newdata}{data.frame}.
+<<>>=
+optSeq <- optTx(x=fitSeq,newdata=newpatient)
+optSeq
+@
+
+The information returned by \function{optTx} differs from that returned for 
+the $Q$-learning and $IQ$-learning methods. 
+For the \function{optimalSeq} method, \function{optTx} returns only a
+matrix of estimated optimal treatments. 
+Each row corresponds to an observation; each
+column corresponds to a treatment decision point. 
+
+
+\subsection{Doubly Robust Estimation from a Classification Perspective}
+
+The doubly robust method described in the previous subsection requires
+that a class of treatment regimes be prespecified. \citet{ZhangClass:12}
+proposed a classification framework wherein the optimal classifier
+corresponds to the optimal treatment regime. Within
+this framework, the class of treatment regimes does not need
+to be prespecified and can instead be identified in a data-driven
+way by minimizing an expected weighted misclassification error.
+
+This method is developed in \pkg{DynTxRegime}
+ only for single-decision-point scenarios with
+binary treatment coded as $\{0,1\}$.
+
+It can be shown that the IPWE and AIPWE estimators 
+given in the previous subsection are equivalent to 
+\begin{eqnarray}
+IPWE(\nu) &=& n^{-1} \sum_{i=1}^{n} \left\{
+g(X_i,\nu) \widehat{C}_{IPWE}(X_i)\right\} \nonumber \\
+&+&
+n^{-1} \sum_{i=1}^{n} \left\{
+\frac{1 - A_{i}}{\pi(0,X_{i}; \hat{\gamma})} Y_i \right\}
+\end{eqnarray}
+
+\begin{eqnarray}
+AIPWE(\nu) &=& n^{-1} \sum_{i=1}^{n} \left\{
+g(X_i,\nu) \widehat{C}_{AIPWE}(X_i)\right\} \nonumber \\
+&+&
+n^{-1} \sum_{i=1}^{n} \left\{
+\frac{1 - A_{i}}{\pi(0,X_{i}; \hat{\gamma})} Y_i
+-
+\frac{A_{i} - \pi(1,X_{i}; \hat{\gamma})}
+{\pi(0,X_{i}; \hat{\gamma})} m(0,X_{i};\hat{\beta}) \right\}
+\end{eqnarray}
+
+where
+\begin{eqnarray}
+\widehat{C}_{IPWE}(X_{i}) &=&
+\frac{A_{i}}{\pi(1,X_{i}; \hat{\gamma})} Y_{i} -
+\frac{1-A_{i}}{\pi(0,X_{i}; \hat{\gamma})} Y_{i}
+\end{eqnarray}
+and
+\begin{eqnarray}
+\widehat{C}_{AIPWE}(X_{i}) &=&
+\frac{ A_{i} }{ \pi(1, X_{i}; \hat{\gamma}) } Y_{i} -
+\frac{ 1-A_{i} }{ \pi(0, X_{i}; \hat{\gamma}) } Y_{i} \\
+&-&
+\frac{ A_{i} - \pi(1, X_{i}; \hat{\gamma})}
+{ \pi(1, X_{i}; \hat{\gamma}) }
+m(1, X_{i}; \hat{\gamma}) -
+\frac{ A_{i} - \pi(1, X_{i}; \hat{\gamma})}
+{ \pi(0, X_{i}; \hat{\gamma}) }
+m(0, X_{i}; \hat{\gamma})
+\end{eqnarray}
+
+For these estimators, optimizing $\mathbb{E}\{Y^{*}(g)\}$ is equivalent to 
+optimizing \\
+$n^{-1} \sum_{i=1}^{n} \left\{
+g(X_i,\nu) \widehat{C}_{AIPWE}(X_i)\right\}$ or 
+$n^{-1} \sum_{i=1}^{n} \left\{
+g(X_i,\nu) \widehat{C}_{IPWE}(X_i)\right\}$.
+
+Estimating the optimal treatment regime in the class $\mathcal{G}$
+ can be separated into
+two steps: constructing an estimator $\widehat{C}(X_{i})$ of the
+contrast function $C(X_{i})$ for $i=1,\dots,n$, and
+subsequently estimating $g^{opt}$ by 
+$\hat{g}^{opt} = \arg \max n^{-1} \sum_{i=1}^{n} \left\{
+g(X_i,\nu) \widehat{C}(X_i)\right\}$, where the maximization is across
+all regimes in the class considered.
+
+\citet{ZhangClass:12}, showed that the optimal treatment regime thus defined can
+be rewritten as a weighted classification problem, where
+\begin{equation}
+g^{opt} = \arg \max_{g \in \mathcal{G}}
+\left[ \mathbb{E}\left\{ |C(X)| \left[I\left\{C(X) > 0\right\} -
+g(X)\right]^2\right\}\right],
+\end{equation}
+where $W=|C(X)|$ is a weight and $Z=I\left\{C(X) > 0\right\}$
+is the class, or treatment, to which the subject is assigned.
+
+The algorithm for the doubly robust classification method is as follows:
+
+{\bf Doubly Robust Classification Algorithm:}
+\begin{center}
+  \begin{tabular}{|c l p{4.5in} |}
+    \hline
+    &&\\
+    DR1. & Modeling: & Regress $A$ on $X$ to obtain $\pi(A, X; \hat{\gamma})$. \\ 
+    &&\\
+    DR2. & Modeling: & Regress $Y$ on $X$ and $A$ to obtain \\ 
+         &           & $m(A, X; \hat{\beta}) = \mu(x;\hat{\gamma}_{2}) + 
+                       A~\mathcal{C}(x;\hat{\eta})$. \\ 
+    && \\
+    DR3. & Estimator: & Use $m(A, X; \hat{\beta})$ and 
+                        $\pi(A, X; \hat{\gamma})$ to estimate 
+                        $\hat{C}_{AIPWE}$ ($\hat{C}_{IPWE}$)\\
+    && \\
+    DR4. & Classification:  & Construct
+class labels $\hat{Z}_{i} = I \left\{ \hat{C}(X_{i})>0 \right\}$ and
+weights $\hat{W}_i = |\hat{C}(X_{i})|$ for each subject. Perform
+classification regression. \\
+    &&\\
+    \hline
+  \end{tabular}
+\end{center}
+
+\subsubsection{The \function{optimalClass} function}
+Function 
+\function{optimalClass} implements the single-decision-point, doubly-robust 
+classification method of \citet{ZhangClass:12}. It is appropriate
+for single-decision-point analyses with binary treatments coded as $\{0,1\}$.
+
+\begin{verbatim}
+optimalClass(moPropen, moMain, moCont, moClass, data, response, txName, 
+             iter = 0L)
+\end{verbatim}
+\begin{itemize}
+
+\item{\argument{moPropen}:  }{an object of class \class{modelObj}
+created by  \function{buildModelObj} of \pkg{modelObj}.
+This object defines the model and regression/prediction functions
+to be used
+ for the 
+propensity for treatment, 
+$\pi(A, X; \gamma)$.
+When defining the modeling object, the prediction method must
+return predictions on the scale of the response.}
+
+\item{\argument{moMain}:  }{an object of class \class{modelObj}
+created by  \function{buildModelObj} of \pkg{modelObj}.
+This object defines the model and regression/prediction functions
+to be used
+for the main
+effects component of the outcome regression model, 
+$\mu(X; \gamma)$.
+When defining the modeling object, the prediction method must
+return predictions on the scale of the response.}
+
+\item{\argument{moCont}:  }{an object of class \class{modelObj}
+created by  \function{buildModelObj} of \pkg{modelObj}.
+This object defines the model and regression/prediction functions
+to be used
+for the contrasts
+component of the outcome regression model, 
+$\mathcal{C}(X; \eta)$.
+When defining the modeling object, the prediction method must
+return predictions on the scale of the response.}
+
+\item{\argument{moClass}:  }{an object of class \class{modelObj}
+created by  \function{buildModelObj} of \pkg{modelObj}.
+This object defines the model and regression/prediction functions
+to be used
+for the classification step.
+When defining the modeling object, the prediction method must
+return predictions on the scale of the classifier (i.e., 0,1).}
+
+\item{\argument{data}:  }{an object of class \class{data.frame}.
+The covariates and treatments
+of the training set. Treatments must be coded as integers $\{0,1\}$}
+
+\item{\argument{response}: }{an object of class \class{vector}.
+The final outcome of interest.}
+
+\item{\argument{txName}: }{an object of class \class{character} specifying 
+the column header of the treatment variable in \argument{data}.}
+
+\item{\argument{iter}: } {an object of class \class{integer}.
+If \argument{iter} $ = 0$, the model parameters of 
+$m(a,x; \beta)$ will be obtained using a single regression analysis,
+i.e., input arguments \argument{moMain} and \argument{moCont} will
+be combined into a single model for $m(a,x; \beta)$. 
+By default, the parameter estimates will be obtained using
+the \proglang{R} function specified in \argument{moMain}.
+If \argument{moMain} = NULL, the methods specified in \argument{moCont}
+will be used. 
+
+If \argument{iter} $ \ge 1$, \argument{moMain} and \argument{moCont}
+will be fit separately using an iterative algorithm. 
+The iterative algorithm is as follows: 
+\begin{eqnarray}
+(1) && Y = Y_{main} + Y_{cont} \nonumber \\
+(2) && \hat{Y}_{cont} = 0 \nonumber \\
+(3) && Y_{main} = Y - \hat{Y}_{cont} \nonumber \\
+(4) && \mathrm{fit} ~ Y_{main} \sim moMain \nonumber \\
+(5) && Y_{cont} = Y-\hat{Y}_{main} \nonumber \\
+(6) && \mathrm{fit} ~ Y_{cont} \sim A * moCont \nonumber \\
+(7) && \mathrm{Repeat~steps~(3) - (6)} \nonumber \\
+    && \mathrm{until~convergence~or~a~maximum~number~of~iterations.} \nonumber
+\end{eqnarray}
+\argument{iter} indicates
+the maximum number of iterations to be used to attain convergence.}
+
+\item{\argument{\dots} }{ignored}
+\end{itemize}
+
+\subsubsection{Classification Analysis}
+To illustrate this method, we consider only the second-stage of 
+our bmiData dataset. Specifically, the treatment argument is 
+$A=A2$ and the baseline covariates are \\
+$X=\{ \argument{gender},
+      \argument{race},
+      \argument{parentBMI},
+      \argument{baselineBMI},
+      \argument{month4BMI}, \argument{A1}\}$.
+<<>>=
+data <- bmiData
+data$A1[ bmiData$A1=="MR" ] <- 1
+data$A1[ bmiData$A1=="CD" ] <- 0
+data$A2[ bmiData$A2=="MR" ] <- 1
+data$A2[ bmiData$A2=="CD" ] <- 0
+data$A1 <- as.integer(data$A1)
+data$A2 <- as.integer(data$A2)
+@
+ 
+and we specify a logistic regression model. The model object for
+$\pi(A, X; \gamma)$ must be created using \function{buildModelObj} of
+\pkg{modelObj}.
+<<>>=
+moPropen <- buildModelObj(model = ~1,
+                          solver.method = 'glm',
+                          solver.args = list('family'='binomial'),
+                          predict.method = 'predict.glm',
+                          predict.args = list('type'='response'))
+@
+
+As before, the default scale of the prediction for \function{predict.glm}
+is on the scale of the linear predictors, not
+the response argument. Thus, argument \argument{type}
+must be changed from its default setting.
+
+Next, we specify the model objects for the outcome regression, $m(A, X;\beta)$.
+The model is specified
+as two components, one for the main effects of treatment, \argument{moMain},
+and a second for the contrasts among treatments, \argument{moCont}.
+<<>>=
+<<SSModels>>
+@
+
+
+We will use \function{rpart} to perform the classification step. Any
+\proglang{R} classification method can be used, provided that it accepts
+as input \argument{weights} and that predictions can be returned on the scale of
+the class.
+<<>>=
+library(rpart)
+  moClass <- buildModelObj(model = ~ parentBMI + month4BMI,
+                           solver.method = 'rpart',
+                           solver.args = list(method="class"),
+                           predict.args = list(type='class'))
+@
+
+Note that \pkg{rpart} makes use of the generic \function{predict},
+and thus \argument{predict.method} was not specified.
+
+The analysis is completed in a single call as follows:
+<<>>=
+fitCl <- optimalClass(moPropen = moPropen, 
+                      moMain = moMainSS, 
+                      moCont = moContSS, 
+                      moClass = moClass,
+                      data = data, 
+                      response = y, 
+                      txName = "A2", 
+                      iter = 0L)
+@
+
+
+\function{optimalClass} returns an object that inherits from
+class \class{DynTxRegime}. 
+<<>>=
+is(fitCl,'DynTxRegime')
+@
+If \argument{moMain} and/or \argument{moCont} are provided in the
+call to \function{optimalClass}, the AIPWE estimator is used. If
+both \argument{moMain}=NULL and \argument{moCont}=NULL, the IPWE
+estimator is used.
+<<>>=
+fitClIPWE <- optimalClass(moPropen = moPropen, 
+                          moMain = NULL, 
+                          moCont = NULL, 
+                          moClass = moClass,
+                          data = data, 
+                          response = y, 
+                          txName = "A2", 
+                          iter = 0L)
+@
+
+\subsubsection{Methods}
+Standard regression analysis tools were
+discussed in Subsection \ref{methods}. Additional methods specific
+to the \function{optimalClass} procedure follow.
+
+Function \functionSig{estimator}{object}{DynTxRegime}
+retrieves the estimated mean potential outcome for the treatment regime.
+<<>>=
+estimator(fitCl)
+@
+The value object returned by the classification method can be retrieved
+using \functionSig{classif}{object}{DynTxRegime}.
+<<>>=
+classif(fitCl)
+@
+To retrieve the value objects returned by the outcome
+regression model fitting functions use 
+\functionSig{outcome}{object}{DynTxRegime}.
+A list is returned, the structure of which depends on the 
+choice of input parameters; see Table \ref{table:QlistNames} for details.
+This method is useful when analysis tools are available
+for the regression method that cannot be accessed from the \class{DynTxRegime} object
+<<>>=
+fitO <- outcome(fitCl)
+head(fitted.values(fitO[[ "Combined" ]]))
+@
+Similarly, \functionSig{propen}{object}{DynTxRegime} retrieves
+the value object returned by the propensity for treatment model fitting
+function. This method is useful when analysis tools are available
+for the fitting class that cannot be accessed from the \class{DynTxRegime} object
+<<>>=
+fitP <- propen(fitCl)
+head(fitted.values(fitP))
+@
+To obtain the estimated optimal treatments for the
+training data, use \functionSigTwoD{optTx}{x}{DynTxRegime}{newdata}{missing}.
+<<>>=
+head(optTx(x=fitCl))
+@
+To recommend an optimal treatments for a new patient, their covariate
+and treatment histories are provided to \function{optTx} as a \class{data.frame}.
+<<echo=FALSE>>=
+newpatient$A1=0
+@
+<<>>=
+newpatient
+optCl <- optTx(x=fitCl, newdata=newpatient)
+optCl
+@
+
+\subsection{Doubly Robust Estimation for Multiple Decision Points}
+\label{sequential}
+
+In Zhang et al, 2013, the methods of Subsection \ref{single}
+were extended to the multiple-decision-points scenario.
+The problem of estimating the optimal
+treatment regime is recast as a coarsened data problem.  
+
+As before, let $K$ denote the number of decision points under analysis. 
+The treatment regimes parameterized in $\nu$ are defined as 
+$g(\barX{K}, \barA{K-1}, \nu) = 
+\{g_{1}(X_{1},\nu_{1}), \dots, 
+ g_{K}(\barX{K},\barA{K-1},\nu_K)\}$,
+where $\nu = (\nu_{1}^T, \dots, \nu_K^T)^T$.
+For notational convenience, we will denote
+$g_{k,\nu} = g_{k}(\barX{k},\barA{k-1},\nu_k)$ and
+ $\barg{k,\nu} = (g_{1,\nu}, \dots, 
+ g_{k,\nu})$.
+
+Let, $C_{\nu}$ be a discrete coarsening argument taking values 
+$1, \dots, K, \infty$, corresponding to the
+$K+1$ levels of coarsening. 
+This argument reflects the extent to which the observed treatments received are
+consistent with those dictated by $\barg{K,\nu}$.
+For example, if the observed first-stage treatment is not the
+treatment dictated by the first-stage treatment regime ($A_{1} \ne g_{1,\nu}$),
+$C_{\nu} = 1$. In this case, we observe only $X_1$, and all other 
+covariates are ``missing."
+Similarly, if treatments $A_1, \dots, A_{k-1}$ are consistent with
+the treatment regime, but $A_{k} \ne g_{k, \nu}$,
+$C_{\nu} = k$, and we observe only $X_1, \dots, X_{k}$.
+If all observed treatments are consistent with the treatment regime, 
+$C_{\nu} = \infty$, and we observe the ``full data." 
+
+
+Define the
+coarsening hazard function, $\lambda_{k,\nu}(\barX{k}, \barA{k})=$ 
+pr$(A_{k} \ne g_{k,\nu} \mid 
+\barX{k}, \barA{k-1}=\barg{k-1,\nu})$. 
+Thus, pr$(C_{k} > k \mid \barX{k}, \barA{k})=
+K_{k,\nu}(\barX{k},\barA{k}) = 
+\prod_{k'=1}^{k} \{1-\lambda_{k',\nu}(\barX{k'}, \barA{k'})\}$.
+
+With these developments, the form of the estimator is taken to be
+\begin{align}
+\mathbb{E}\{Y^{*}(g)\} = & 
+n^{-1} \sum_{i=1}^{n} \left\{
+\frac{ I(\mathcal{C}_i = \infty) }{ K_K(\barX{ki}, \barA{ki}) } Y_i 
+\right. \nonumber \\
+& \left. +
+\sum_{k=1}^{K}
+\frac{ I(\mathcal{C}_i = k) - \lambda_{k,\nu}(\barX{ki}, \barA{ki})
+I(\mathcal{C}_i \ge k)}
+{K_k(\barX{ki}, \barA{ki})} L_k(\barX{ki})\right\}
+\label{dr}
+\end{align}
+where $L_{k}(\barX{k})$ are arbitrary functions of $\barX{k}$.
+
+To implement Eq. (\ref{dr}), one must specify $\pi_{k}(a,\barX{k},\barA{k-1})$
+and $L_{k}(\barX{ki})$. The first follow from specifying 
+$\pi_1(a_{1},x_{1}) =$ pr$(A_{1} = a_{1} \mid X_{1} = x_{1}), 
+\pi_k(a_{k},\bar{x}_k,\bara{k-1})=$
+pr$(A_{k}=a_{k} \mid \barX{k} = \barx{k}, \barA{k-1} = \bara{k-1})$
+for $k=K,\dots,2$. It is assumed that these are not known, and
+the user must posit models
+$\pi_1(a_1,x_1;\gamma_1)$, $\pi_k(a_k, \barx{k},\bara{k-1};\gamma_k)$
+for $k = 2, \dots, K$ and estimate $\gamma_k$ by $\hat{\gamma}_k$, 
+e.g., using logistic regression.
+This implies that
+$\lambda_{1,\nu}(X_1;\gamma_1)= 1- \pi_1(g_{1,\nu}, x_1;\gamma_1)$ and
+$\lambda_{k,\nu}(\barX{k}, \barA{k})= 
+(1 - \pi_{k}(g_{k,\nu},\barX{k},\barg{k-1,\nu}))$ 
+
+
+In \pkg{DynTxRegime}, two options exist for specification of the 
+$L_{k}(\barX{k})$.
+The simplest is $L_{k}(\barX{k}) \equiv 0$,
+yielding the IPWE:
+\begin{equation}
+{IPWE}(\nu) = n^{-1} \sum_{i=1}^{n} 
+\frac{ I(\mathcal{C}_i = \infty) }{ K_K(\barX{ki}, \barA{ki}; \gamma_k) } Y_i.
+\label{ipwe}
+\end{equation}
+
+To take greatest advantage of the potential for improved
+efficiency through the augmentation term in Eq. (\ref{dr}),
+one can posit and fit parametric models
+approximating the conditional expectations 
+$L_{k}^{opt}(\barx{k}) = \mathbb{E}
+\{ Y^{*}(g) \mid \barX{k}^{*}(\barg{k-1})=\barx{k}\}$ and substitute these
+into Eq. \ref{dr}. To this end, let 
+\begin{eqnarray}
+m_K(\barx{K},\bara{K}) &=& 
+\mathbb{E}(Y \mid \barX{K}=\barx{K}, \barA{K}=\bara{K}) \\
+f_{K}(\barx{K},\bara{k-1}) &=& 
+m_K(\barx{K},\bara{K-1},g_{K,\nu})
+\end{eqnarray}
+Then define iteratively, for $k=K-1,\dots,2$, the quantities
+\begin{eqnarray}
+m_k(\barx{k},\bara{k}) &=& 
+\mathbb{E}\{f_{k+1}(\barx{k}, X_{k+1},\bara{k}) \mid
+\barX{k} = \barx{k}, \barA{k}=\bara{k}\} \\
+f_{k}(\barx{k},\bara{k-1}) &=& m_k
+(\barx{k},\bara{k-1},g_{k\nu})
+\end{eqnarray}
+ for $k=1$,
+$m_1(x_1,a_1) = \mathbb{E}\{f_2(x_1,X_2,a_1) \mid X_1=x_1,A_1=a_1\},
+f_1(x_1) = m_1(x_1,g_{1,\nu})$.
+
+The user must specify models $m_k(\barx{k},\bara{k};\beta_k)$,
+for $k=1,\dots,K$. The fitted $m_k(\barx{k},\bara{k};\hat{\beta}_k)$
+are then used to approximate $L_{k}^{opt}(\barx{k})$ in Eq. (\ref{dr}).
+\begin{align}
+{AIPWE}(\nu) =& n^{-1} \sum_{i=1}^{n} \left\{
+\frac{ I(\mathcal{C}_i = \infty) }{ K_K(\barX{ki}, \barA{ki}; \gamma) } Y_i 
+\right. \nonumber \\
+& \left. +
+\sum_{k=1}^{K}
+\frac{ I(\mathcal{C}_i = k) - 
+\lambda_{k,\nu}(\barX{ki}, \barA{ki};\gamma)I(\mathcal{C}_i \ge k)}
+{K_k(\barX{ki}, \barA{ki}; \gamma)} m_k(\barX{ki},\barg{k,\nu};\hat{\beta}_k)
+\right\}.
+\label{aipwe}
+\end{align}
+
+The algorithm for this method is as follows:
+
+\noindent {\bf Doubly Robust Algorithm - Multiple Decision Points:}    
+\begin{center}
+  \begin{tabular}{|c l p{4.5in} |}
+    \hline
+    &&\\
+    \multicolumn{3}{|l|}{For each decision point, $k$:} \\
+    DR1. & Modeling: & Regress $A_{k}$ on $\barX{k}$, $\barA{k-1}$ to obtain \\ 
+         &           & $\pi_k(A_k, \barX{k}, \barA{k-1}; \hat{\gamma}_{k})$. \\ 
+    &&\\
+    \multicolumn{3}{|l|}{For an estimate of $\nu$} \\
+    & DR2.  Modeling: & Regress $Y$ on $\barX{K}$ and $\barA{K}$ to obtain \\ 
+         &           & $m_{K}(\barx{K},\bara{K}; \hat{\beta}_K)
+                        = \mu_K(\barx{K}, \bara{K-1}; \hat{\gamma}_{K}) + 
+                       a_K~
+                       \mathcal{C}_K(\barx{K}, \bara{K-1}; \hat{\eta}_K)$. \\ 
+    && \\
+         &           & Define \\
+         &           & $f_{K}(\barx{K},\bara{K-1}) = 
+                         m_K(\barx{K},\bara{K-1},g_{K,\nu}; \hat{\beta}_K)$ \\
+    && \\
+    &\multicolumn{2}{l}{For $k$=$K-1,\dots,1$} \\
+    & DR3.  Modeling: & Regress $f_{k+1}(\barX{k+1},\barA{k})$ on 
+                      $\barX{k}$ and $\barA{k}$ to obtain \\ 
+         &           & $m_{k}(\barx{k},\bara{k}; \hat{\beta}_k)
+                        = \mu(\barx{k}, \bara{k-1}; \hat{\gamma}_{k}) + 
+                       a_k~
+                       \mathcal{C}(\barx{k}, \bara{k-1}; \hat{\eta}_k)$. \\ 
+    && \\
+         &           & Define \\
+         &           & $f_{k}(\barx{k},\bara{k-1}) = 
+                         m_k(\barx{k},\bara{k-1},g_{k,\nu}; \hat{\beta}_k)$ \\
+    && \\
+   
+    & DR4.  Estimator: & Use $m_{k}(\barX{k}, \barg{k,\nu}; \hat{\beta}_k)$ and 
+                        $\pi_k(g_{k,\nu}, \barX{k}, \barg{k-1}; 
+                         \hat{\gamma}_{k})$ $k=1,\dots,K$ to estimate 
+                        $AIPWE(\nu)$ or $IPWE(\nu)$\\
+    && \\
+    & DR5. Update:  & Update $\nu$, repeat DR2-DR5; \\
+         &          & Terminate at convergence
+                      of estimator.\\
+    && \\
+    \hline
+  \end{tabular}
+\end{center}
+
+Both the IPWE and AIPWE estimators are non-smooth functions in $\nu$;
+accordingly, the use of traditional optimization
+methods to maximize these quantities in $\nu$ can be problematic.
+In \pkg{DynTxRegime}, the parameters of the pre-specified treatment regime
+are optimized using a genetic algorithm, \pkg{rgenoud} (Mebane and Sekhon, 2011).
+
+Notice that the model $m(\bar{X}, g(\barX{k},\nu); \beta)$ must be refit for each
+iteration in the optimization of $\nu$. A practical alternative
+when the regime is derived from a model is to fit 
+$m_k(\barX{k},\barA{k-1};\beta)$ using
+$Q$-learning and to hold $\hat{\beta}$ fixed during the optimization of $\nu$.
+Both options
+are implemented in \pkg{DynTxRegime}.
+
+\subsubsection{The \function{optimalSeq} function}
+For multiple decision points, the call to \function{optimalSeq} is 
+very similar to that of the single-decision-point analysis.
+The primary difference between the calls is the use of lists rather
+than single objects.
+\begin{verbatim}
+optimalSeq(moPropen, moMain, moCont, data, response, txName, regimes,
+           fSet = NULL, refit=FALSE, iter = 0L, \dots)
+\end{verbatim}
+\begin{itemize}
+
+\item{\argument{moPropen}:  }{a list of objects of class \class{modelObj},
+each element of which is created by  \function{buildModelObj} 
+of \pkg{modelObj}.
+The object in the $k^{th}$ element of \argument{moPropen}
+defines the regression step for the $k^{th}$
+propensity for treatment, 
+$\pi_k(A, X; \gamma)$.
+When defining the modeling object, the prediction method must
+return predictions on the scale of the response.}
+
+\item{\argument{moMain}:  }{a list of objects of class \class{modelObj},
+each element of which is created by  \function{buildModelObj} 
+of \pkg{modelObj}.
+The object in the $k^{th}$ element of \argument{moMain}
+defines the regression step for the main
+effects component of the $k^{th}$  outcome regression model, 
+$\mu_k(\barX{k}, \barA{k-1}; \gamma_k)$.
+When defining the modeling object, the prediction method must
+return predictions on the scale of the response.}
+
+\item{\argument{moCont}:  }{a list of objects of class \class{modelObj},
+each element of which is created by  \function{buildModelObj} 
+of \pkg{modelObj}.
+The object in the $k^{th}$ element of \argument{moCont}
+defines the regression step for the contrasts component of the $k^{th}$ 
+outcome regression model, 
+$\mathcal{C}_k(\barX{k}, \barA{k-1}; \eta_k)$.
+When defining the modeling object, the prediction method must
+return predictions on the scale of the response.}
+
+
+\item{\argument{data}:  }{an object of class \class{data.frame}.
+The covariates and treatments
+of the training set. Treatments can be factors or integers.}
+
+\item{\argument{response}: }{an object of class \class{vector}.
+The final outcome of interest.}
+
+\item{\argument{txName}: }{a vector object of class \class{character}. 
+The $k^{th}$ element of the list gives the column header of \argument{data} 
+containing the $k^{th}$ treatment argument. }
+
+\item{\argument{regimes}: } {a list of objects of class \class{function}.
+The $k^{th}$ element of this list is a function 
+that defines the $k^{th}$ parameterized treatment regime, 
+$g(\barX{k},\barA{k-1},\nu)$.}
+
+\item{\argument{fSet}: } {a list of objects of class \class{function}.
+The $k^{th}$ element of this list is a 
+function that defines the rules for determining the feasible treatment options, 
+$\Phi_k(\bar{x}_k, \bar{a}_{k-1})$, for an individual or modeling subset
+based on their covariate and treatment
+history. }
+
+\item{\argument{refit}: }{an object of class \class{logical}. If
+\argument{refit}=TRUE, the outcome regression model, $m(A, X;\beta)$
+is refit at each iteration of the treatment regime optimization algorithm.
+If \argument{refit}=FALSE, $Q$-learning is used.}
+
+\item{\argument{iter}: } {an object of class \class{integer}.
+If \argument{iter} $ = 0$, the model parameters of 
+$Q_{k}(\barx{k},\bara{k}; \beta_{k})$ will be obtained using a single regression analysis,
+i.e., input arguments \argument{moMain} and \argument{moCont} will
+be combined into a single model for $Q_{k}(\barx{k},\bara{k}; \beta_{k})$. 
+By default, the parameter estimates will be obtained using
+the \proglang{R} function specified in \argument{moMain}.
+If \argument{moMain} = NULL, the methods specified in \argument{moCont}
+will be used. 
+
+If \argument{iter} $ \ge 1$, \argument{moMain} and \argument{moCont}
+will be fit separately using an iterative algorithm. 
+The iterative algorithm is as follows: 
+\begin{eqnarray}
+(1) && Y = Y_{main} + Y_{cont} \nonumber \\
+(2) && \hat{Y}_{cont} = 0 \nonumber \\
+(3) && Y_{main} = Y - \hat{Y}_{cont} \nonumber \\
+(4) && \mathrm{fit} ~ Y_{main} \sim moMain \nonumber \\
+(5) && Y_{cont} = Y-\hat{Y}_{main} \nonumber \\
+(6) && \mathrm{fit} ~ Y_{cont} \sim A * moCont \nonumber \\
+(7) && \mathrm{Repeat~steps~(3) - (6)} \nonumber \\
+    && \mathrm{until~convergence~or~a~maximum~number~of~iterations.} \nonumber
+\end{eqnarray}
+\argument{iter} indicates
+the maximum number of iterations to be used to attain convergence.}
+
+\item{\argument{\dots} }{Additional arguments to be passed to \function{genoud}.}
+\end{itemize}
+
+\subsubsection{Analysis}
+To illustrate this method, we will use the full \argument{bmiData} dataset.
+<<>>=
+data <- bmiData
+data$A1[ bmiData$A1=="MR" ] <- 1
+data$A1[ bmiData$A1=="CD" ] <- 0
+data$A2[ bmiData$A2=="MR" ] <- 1
+data$A2[ bmiData$A2=="CD" ] <- 0
+data$A1 <- as.integer(data$A1)
+data$A2 <- as.integer(data$A2)
+@
+The first step is to specify the model for the propensity for treatment,
+$\pi_k(\barA{k}, \barX{k}; \gamma_k)$. For both treatment stages, the treatment argument is 
+binary, coded as $\{0,1\}$,
+and we specify a logistic regression model. The model object for
+$\pi_k(\barA{k}, \barX{k}; \gamma)$ must be created using \function{buildModelObj} of
+package \pkg{modelObj}.
+<<>>=
+moPropen <- list()
+moPropen[[1]] <- buildModelObj(model = ~1,
+                               solver.method = 'glm',
+                               solver.args = list(family='binomial'),
+                               predict.method = 'predict.glm',
+                               predict.args = list(type='response'))
+moPropen[[2]] <- buildModelObj(model = ~1,
+                               solver.method = 'glm',
+                               solver.args = list(family='binomial'),
+                               predict.method = 'predict.glm',
+                               predict.args = list(type='response'))
+@
+
+Note that the default scale of the prediction for \function{predict.glm}
+is on the scale of the linear predictors, not
+the response argument. Thus, variable \argument{type}
+must be changed from its default setting.
+
+Next, we specify the model objects for the outcome regression, 
+$m_k(\barA{k}, \barX{k};\beta_k)$.
+The model is specified
+as two components, one for the main effects of treatment, \argument{moMain},
+and a second for the contrasts among treatments, \argument{moCont}.
+<<>>=
+#
+#Models for first-stage regression
+######
+<<FSModels>>
+#
+#Models for second-stage regression
+######
+<<SSModels>>
+
+moMain <- list(moMainFS, moMainSS)
+moCont <- list(moContFS, moContSS)
+@
+\argument{regimes} is the parameterized treatment regime 
+and is provided to \function{optimalSeq}
+as a function. The formal arguments must be the parameter names followed
+by ``data."  The function must return the vector of treatment assignments
+for the input data.
+Our treatment regime in this example is derived from the 
+outcome regression models.
+<<>>=
+regimes <- list()
+regimes[[1]] <- function(a, b, d, data){
+                  as.numeric(a + b*data$parentBMI + d*data$baselineBMI > 0 )
+                }
+regimes[[2]] <- function(a, b, d, data){
+                  as.numeric(a + b*data$month4BMI + d*data$A1 > 0 )
+                }
+@
+
+
+The function call for the genetic algorithm is \function{genoud}.
+This method requires several additional pieces of information
+that are passed through the ellipsis of the call to \function{optimalSeq}.
+At a minimum the information should include the search space for the parameters of
+the regimes
+<<>>=
+c1 <- rep(-1000,6)
+c2 <- rep( 1000,6)
+Domains <- cbind(c1,c2)
+@
+Starting values for the parameters
+<<>>=
+starts <- (1:6)/10
+@
+And a population size
+<<>>=
+pop.size <- 100
+@
+We have opted for a VERY small population in this example to expedite the
+vignette. It is recommended that a much larger population be used, $\ge 1000$.
+
+The analysis is executed as follows:
+<<>>=
+fitSeq2 <- optimalSeq(moPropen = moPropen, 
+                     moMain = moMain,
+                     moCont = moCont,
+                     data = data, 
+                     response = y, 
+                     txName = c("A1", "A2"), 
+                     regimes = regimes, 
+                     pop.size = pop.size, 
+                     starting.values = starts, 
+                     Domains = Domains, 
+                     iter = 0,
+                     refit = FALSE)
+@
+\function{optimalSeq} returns an object that inherits from
+class \class{DynTxRegime}. 
+<<>>=
+is(fitSeq2,'DynTxRegime')
+@
+
+The complete doubly robust algorithm for a multi-stage trial
+is performed with the single
+call to \function{optimalSeq}.
+
+If \argument{moMain}=NULL and \argument{moCont}=NULL, the IPWE
+estimator is used.
+<<>>=
+fitSeq2IPWE <- optimalSeq(moPropen = moPropen, 
+                          moMain = NULL,
+                          moCont = NULL,
+                          data = data, 
+                          response = y, 
+                          txName = c("A1", "A2"), 
+                          regimes = regimes, 
+                          pop.size = pop.size, 
+                          starting.values = starts, 
+                          Domains = Domains, 
+                          iter = 0,
+                          refit = FALSE)
+@
+
+
+\subsubsection{Methods}
+Standard regression analysis tools were
+discussed in Subsection \ref{methods}. Additional methods specific
+to the \function{optimalSeq} procedure follow.
+
+All methods are the same as discussed in Section 4.1.3. However,
+most returned objects will be lists; the $k^{th}$ element of the list
+corresponds to the results for the $k^{th}$ decision point.  For example,
+%92
+<<>>=
+est <- regimeCoef(fitSeq2)
+est[[1]] <- est[[1]]/sqrt(est[[1]] %*% est[[1]])
+est[[2]] <- est[[2]]/sqrt(est[[2]] %*% est[[2]])
+est
+@
+
+A list is returned. The contents of the $k^{th}$ element of the
+list are the parameters for the $k^{th}$-stage regime.
+
+The only exception to this structure is the estimated optimal treatment,
+where a matrix is returned; 
+the $k^{th}$ column corresponds to the $k^{th}$ decision point.
+%97
+<<>>=
+head(optTx(x=fitSeq2))
+optTx(x=fitSeq2,newdata=newpatient)
+@
+
+
+\subsubsection{\bf Feasible Treatments and Subset Modeling}
+\label{subsetModeling2}
+As was illustrated for $Q$-learning, 
+the 
+\function{optimalSeq} method allows feasible
+treatment subsets to be defined and for unique models to be specified for
+patient subsets. We will combine both of these features into a single
+example. Consider a clinical trial design 
+in which a response argument, $R$, is measured prior
+to second stage randomization. If $R=0$, patients
+receive treatment (1-A1) at the second-stage. 
+If $R=1$, patients are randomized to one of two treatments $\{0,1\}$
+at the second-stage. In addition, we want to fit the first-stage
+regression for patients with \argument{baselineBMI} $< 37$ using
+one model, and those with \argument{baselineBMI} $\ge 37$ using another.
+
+Our earlier working example can be manipulated to illustrate this scenario.
+%99
+<<>>=
+data <- bmiData
+data$A1[ bmiData$A1=="MR" ] <- 1
+data$A1[ bmiData$A1=="CD" ] <- 0
+data$A2[ bmiData$A2=="MR" ] <- 1
+data$A2[ bmiData$A2=="CD" ] <- 0
+data$A1 <- as.integer(data$A1)
+data$A2 <- as.integer(data$A2)
+
+data$R <- rbinom(nrow(data),1,0.5)
+data$A2[data$R==0] <- 1L - data$A1[data$R==0]
+@
+
+
+To create the dataset, we randomly generated a binary response argument
+with equal probability.
+For patients with $R=0$, the second-stage treatment was set to $1-A_1$.
+\argument{fSet} describes the second-stage of our clinical trial design:
+%100
+<<>>=
+fSet <- list()
+fSet[[1]] <- function(data){
+               if( data$baselineBMI < 37 ) {
+                 return(list("g1", c(0,1) ) )
+               } else if( data$baselineBMI >= 37 ) {
+                 return(list("g2", c(0,1) ) )
+               }
+             }
+fSet[[2]] <- function(data){
+               if( data$R == 0L ) {
+                 return(list("g3", c(1L-data$A1) ) )
+               } else if( data$R == 1L ) {
+                 return(list("g4", c(0,1) ) )
+               }
+             }
+@
+ 
+
+We want to specify a unique model for each
+subset of patients in the first-stage regression. 
+\function{buildModelObjSubset} extends
+the \function{buildModelObj} function of \pkg{modelObj} by allowing
+the user to specify the subset for which the model is defined.
+Because all models are communicated in a single call, we must add the
+optional \argument{dp} argument to the call to \function{buildModelObjSubset}.
+The model objects will now be lists and are defined as:
+%101
+<<>>=
+moMain <- list()
+moCont <- list()
+#Models for second-stage outcome
+moMain[[1]] <- buildModelObjSubset(model = ~ gender + parentBMI + month4BMI + A1,
+                                   dp = 2,
+                                   subset = c("g3","g4"),
+                                   solver.method = 'lm',
+                                   predict.method = 'predict.lm',
+                                   predict.args = list(type='response'))
+
+moCont[[1]] <- buildModelObjSubset(model = ~ month4BMI + A1,
+                                   dp = 2,
+                                   subset = c("g3","g4"),
+                                   solver.method = 'lm',
+                                   predict.method = 'predict.lm',
+                                   predict.args = list(type='response'))
+
+#Models for first-stage outcome for subset g1
+moMain[[2]] <- buildModelObjSubset(model = ~ gender + race + parentBMI + 
+                                             baselineBMI,
+                                   dp = 1,
+                                   subset = "g1",
+                                   solver.method = 'lm',
+                                   predict.method = 'predict.lm',
+                                   predict.args = list(type='response'))
+
+moCont[[2]] <- buildModelObjSubset(model = ~ parentBMI + baselineBMI,
+                                   dp = 1,
+                                   subset = "g1",
+                                   solver.method = 'lm',
+                                   predict.method = 'predict.lm',
+                                   predict.args = list(type='response'))
+
+#Models for first-stage outcome for subset g2
+moMain[[3]] <- buildModelObjSubset(model = ~ gender + race + parentBMI + 
+                                             baselineBMI,
+                                   dp = 1,
+                                   subset = "g2",
+                                   solver.method = 'lm',
+                                   predict.method = 'predict.lm',
+                                   predict.args = list(type='response'))
+
+moCont[[3]] <- buildModelObjSubset(model = ~ parentBMI + baselineBMI,
+                                   dp = 1,
+                                   subset = "g2",
+                                   solver.method = 'lm',
+                                   predict.method = 'predict.lm',
+                                   predict.args = list(type='response'))
+@
+
+Though the second-stage model is for all
+patients, it must be created using \function{buildModelObjSubset}.
+All elements of a list passed to \argument{moCont}, \argument{moMain}, or 
+\argument{moPropen} must be of the same class.
+
+We can also define subset models for the propensity of treatment. For
+example
+%102
+<<>>=
+library(nnet)
+
+moPropen <- list()
+moPropen[[1]] <- buildModelObjSubset(model = ~1,
+                                     dp = 1,
+                                     subset = "g1",
+                                     solver.method = 'multinom',
+                                     predict.method = 'predict',
+                                     predict.args = list(type='probs'))
+moPropen[[2]] <- buildModelObjSubset(model = ~1,
+                                     dp = 1,
+                                     subset = "g2",
+                                     solver.method = 'multinom',
+                                     predict.method = 'predict',
+                                     predict.args = list(type='probs'))
+moPropen[[3]] <- buildModelObjSubset(model = ~1,
+                                     dp = 2,
+                                     subset = c("g3","g4"),
+                                     solver.method = 'multinom',
+                                     predict.method = 'predict',
+                                     predict.args = list(type='probs'))
+@
+
+Our regime rules are:
+%103
+<<>>=
+regimes <- list()
+regimes[[1]] <- function(a, b, d, data){
+                  as.numeric(a + b*data$parentBMI + d*data$baselineBMI > 0 )
+                }
+regimes[[2]] <- function(a, b, d, data){
+                  as.numeric(a + b*data$month4BMI + d*data$A1 > 0 )
+                }
+@
+The function call is the same, with the exception of \argument{fSet}. 
+Because the calculation and screen print are lengthy, it is not executed within
+the vignette.
+%104
+<<eval=FALSE, echo=TRUE>>=
+fitSeq2_FS <- optimalSeq(moPropen = moPropen, 
+                         moMain = moMain,
+                         moCont = moCont,
+                         fSet = fSet,
+                         data = data, 
+                         response = y, 
+                         txName = c("A1", "A2"), 
+                         regimes = regimes, 
+                         pop.size = pop.size, 
+                         starting.values = starts, 
+                         Domains = Domains, 
+                         iter = 0)
+@
+ 
+
+
+
+\section{Conclusion}
+
+We have demonstrated how to estimate an optimal DTR using
+$Q$-learning, $IQ$-learning, and doubly robust methods in the \proglang{R} 
+package \pkg{DynTxRegime}.  
+
+\section*{Acknowledgments}
+
+The authors would like to thank Dr.\ Rene\'{e} Moore for discussions
+about meal replacement therapy for obese adolescents that informed the
+data generation model.
+
+\bibliographystyle{apalike}
+\bibliography{iq_cites.bib}
+
+\end{document}

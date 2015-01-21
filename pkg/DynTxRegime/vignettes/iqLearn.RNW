@@ -1,0 +1,997 @@
+\documentclass[12pt]{article}
+\usepackage{fullpage}
+\usepackage{natbib}
+\usepackage{amssymb}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage[utf8x]{inputenc}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{bbm}
+\usepackage{Sweave}
+\newcommand{\bma}[1]{\mbox{\boldmath $#1$}}
+\newcommand{\T}{\intercal}
+\newcommand{\bX}{ {\bma{X}} }
+\newcommand{\bx}{ {\bma{x}} }
+\newcommand{\bH}{ {\bma{H}} }
+\newcommand{\bh}{ {\bma{h}} }
+\newcommand{\proglang}[1]{\texttt{#1}}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\pkg}[1]{\texttt{#1}}
+
+  
+\begin{document}
+\title{Interactive Q-learning in \tt{R} using \tt{DynTxRegime}: } 
+\author{Kristin A. Linn, Eric B. Laber, Leonard A. Stefanski, 
+Shannon T. Holloway} 
+\maketitle
+
+\begin{abstract}
+\vspace{-0.08in}
+  Chronic illness treatment strategies must adapt to the 
+  evolving health status of the patient receiving treatment.  Data-driven  
+  dynamic treatment regimes can offer clinicians 
+  and intervention scientists guidance on how to treat patients over time 
+  to bring about the most favorable clinical outcome on average.  
+  Methods for estimating optimal dynamic treatment regimes, 
+  such as $Q$-learning, typically require modeling nonsmooth,
+  nonmonotone transformations of data. Thus, building well-fitting
+  models can be challenging and in some cases may result in a poor 
+  estimate of the optimal treatment regime. Interactive $Q$-learning
+  ($IQ$-learning) 
+  is an alternative to $Q$-learning that only requires 
+  modeling smooth, monotone transformations of the data. The
+  \proglang{R} package \pkg{DynTxRegime} provides functions for
+  implementing the $IQ$-learning algorithm. We demonstrate how to
+  estimate a two-stage optimal treatment policy with $IQ$-learning
+  using a generated data set, \code{bmiData}, that mimics a two-stage
+  randomized body mass index reduction trial with binary treatments at
+  each stage.
+\end{abstract}
+\hrule
+\vspace{0.1in}
+
+\noindent {\em Keywords:} Interactive Q-learning; Q-learning; 
+Dynamic Treatment Regimes; Dynamic Programming; SMART design.
+
+%\VignetteIndexEntry{Using iqLearn}
+
+\section{Introduction}
+
+In practice, clinicians and intervention scientists must adapt
+treatment recommendations in response to the uniquely evolving health
+status of each patient.  Dynamic treatment regimes (DTRs) formalize
+this treatment process as a sequence of decision rules, one for each
+treatment decision, that map current and past patient information to
+a recommended treatment.  A DTR is said to be optimal for a
+pre-specified desirable outcome if 
+it yields the maximal expected outcome when applied to assign treatment
+to a population of interest. 
+
+With the potential for better patient outcomes, reduced treatment
+burden, and lower cost, there is growing interest in personalized treatment
+strategies \citep{Ham+Col:10, pmc:10}.   
+Sequential, Multiple Assignment, Randomized Trials
+\citep[SMARTs][]{Lav+Daw:04, Mur:05a} are designed to estimate
+optimal DTRs.  In a SMART, subjects are randomized to treatment at
+each decision
+point or \emph{stage} of the trial. Figure~\ref{smart} contains a
+visual representation of an example SMART design, where all subjects
+receive the same treatment at baseline (e.g., a standard of
+care) and are then randomized (represented by gold circles) at the
+start of the first stage to one of two treatment categories:
+``switch'' or ``augment'' current treatment.  At the start of the
+second stage, subjects are again randomized to either switch or
+augment their current treatment(s). There are many variations of this
+design; for example, more than two treatments can be offered at each
+stage, and for ethical reasons it is common to include an option for
+baseline or first-stage 
+responders to continue their currently successful
+treatment. Although it is possible to design a trial with additional
+stages, two stage SMARTs are common, as evidenced by many recently
+completed and ongoing SMARTs. For a list of SMARTs that have
+finished or are in the field, see \citet{psu:12} and Eric Laber's
+current list \citet{eblSmart}. With additional
+randomizations beyond one or two stages, the number of patients
+assigned to each sequence of 
+treatments decreases, along with the power to estimate optimal
+decisions in the later stages. The sequential randomization scheme in
+SMARTs guarantees that there are no confounders that influence which
+types of subjects follow each of the possible treatment sequences. To
+keep our discussion focused, we will work under the assumption of a
+two-stage SMART with randomized binary treatments at each
+stage. However, all of the methods discussed here apply to observational
+data when additional assumptions are made on the treatment assignment
+mechanism \citep[see, for example,][]{Mur:03}.
+\begin{figure}
+\begin{center}
+\includegraphics[scale=.6]{figure1.jpeg}
+\end{center}
+\caption{Example of a SMART design with two randomized stages and two
+  treatment options at each stage. Randomizations are represented by
+  gold circles.}\label{smart}
+\end{figure}
+
+
+
+We introduce the $IQ$-learning methods \citep[IQ-learning; ][]{Lab+etal:13}
+implemented in package \pkg{DynTxRegime} in \proglang{R}
+ \citep{R} for estimating 
+optimal DTRs from data obtained from a two stage
+trial with two treatments at each stage. 
+In Section 2, we review $Q$-learning and introduce $IQ$-learning. 
+Section 3 provides a case-study 
+illustrating $IQ$-learning method implemented in the \pkg{DynTxRegime} package.
+A brief discussion of future work concludes the paper in Section 4.  
+
+\section{Q-learning and Interactive Q-learning}
+
+We assume data are collected from a two-stage randomized trial with 
+binary treatments at each stage, resulting in $n$ $\hbox{i.i.d.}$ patient
+trajectories of the form $\allowbreak (\bX_{1}, A_{1}, \bX_{2}, A_{2},
+Y)$. The variables in the trajectory are: baseline covariates,
+$\bX_{1} \in \mathbb{R}^{p_1}$; first-stage randomized treatment,
+$A_{1} \in \{-1, 1\}$; covariates collected during the first-stage but
+prior to second-stage treatment assignment, $X_{2} \in
+\mathbb{R}^{p_2}$; second-stage randomized treatment, $A_{2}\in
+\lbrace -1, 1\rbrace$; and the response, $Y \in \mathbb{R}$, collected 
+at the conclusion of the trial. We assume $Y$ has been coded so that
+higher values indicate more positive clinical outcomes.  To simplify
+notation, we group variables collected prior to each treatment
+randomization into a history vector $\bH_{t}$, $t=1,2$. That is,
+$\bH_{1} = \bX_{1}$ and $\bH_{2}=(\bX_{1}^{\top}, A_{1},
+\bX_{2}^{\top})^{\top}$. 
+
+A DTR is a pair of functions ${\boldsymbol \pi} = (\pi_1, \pi_2)$ where
+$\pi_t$ maps the domain of $\bH_t$ into the space of 
+available treatments $\lbrace -1, 1\rbrace$.  
+Under ${\boldsymbol \pi}$ a patient presenting at time $t$ with 
+history $\bH_t=\bh_t$ is assigned treatment $\pi_t(\bh_t)$.  
+The goal is to estimate a DTR
+that when applied in a population of patients of interest, the
+expected outcome is maximized. Define the
+value of a fixed regime ${\boldsymbol \pi}$ as $V^{{\boldsymbol \pi}} \triangleq
+\mathbb{E}^{{\boldsymbol \pi}}(Y)$, where $\mathbb{E}^{{\boldsymbol \pi}}$ 
+denotes the
+expectation when treatment is assigned according to the policy 
+${\boldsymbol \pi}$.  
+The optimal treatment regime, ${\boldsymbol \pi}^{\hbox{\scriptsize  opt}}$,
+maximizes the value function:
+\begin{equation*}
+  \mathbb{E}^{{\boldsymbol \pi}^{\hbox{\scriptsize  opt}}}(Y) = 
+\sup_{{\boldsymbol \pi}} \mathbb{E}^{{\boldsymbol \pi}} Y.
+\end{equation*}
+In the next two sections, we explain how an optimal regime can be 
+estimated from data using $Q$-learning and $IQ$-learning. The
+$IQ$-learning estimated optimal decision rules will be denoted by
+$\pi_{t}^{\hbox{\scriptsize IQ-opt}}$ and the 
+$Q$-learning analogs by $\pi_{t}^{\hbox{\scriptsize Q-opt}}$.
+Both methods are implemented in the \pkg{DynTxRegime} package.  
+
+\subsection{Q-learning}
+
+$Q$-learning \citep{Wat:89, Wat+Day:92, Mur:05b} is an approximate 
+dynamic programming algorithm that can be used to estimate an optimal 
+DTR from observational or randomized study data.  Define the
+$Q$-functions:
+\begin{eqnarray*}
+  Q_{2}(\bh_{2}, a_{2}) &\triangleq& \mathbb{E}(Y | \bH_{2}=\bh_{2},
+  A_{2}=a_{2}), \\
+  Q_{1}(\bh_{1}, a_{1}) &\triangleq& \mathbb{E} \left( \max_{a_{2}
+      \in \{-1, 1\}} Q_{2}(\bH_{2}, a_{2}) | \bH_{1}=\bh_{1},
+    A_{1}=a_{1} \right). 
+\end{eqnarray*}
+The $Q$-function at stage two measures the {\bf Q}uality of assigning
+$a_{2}$ to a patient presenting with history $\bh_{2}$. Similarly,
+$Q_{1}$ measures the quality of assigning $a_{1}$ to a patient with
+$\bh_{1}$, assuming an optimal decision rule will be followed at stage
+two. Were the $Q$-functions known, dynamic programming \citep{Bel:57}
+gives the optimal solution, $\pi_{t}^{\hbox{ \scriptsize opt}}
+(\bh_{t}) = \arg\max_{a_t \in \{ -1, 1\}} Q_{t}(\bh_{1}, a_{t})$.  
+Because the underlying
+distribution of the patient histories is not known, the conditional
+expectations that define the $Q$-functions are unknown and must be
+approximated.  $Q$-learning approximates the $Q$-functions with
+regression models; commonly linear models are chosen in practice
+because they yield simple, interpretable models.  We will consider
+linear models of the form:
+% \begin{equation*}
+$Q_{t}(\bh_{t}, a_{t}; \beta_{t}) = \bh_{t0}^{\top}\beta_{t0} +
+a_{t}\bh_{t1}^{\top}\beta_{t1}, \;  t=1,2,$
+% \end{equation*}
+where $\bh_{t0}$ and $\bh_{t1}$ include a subset of variables
+collected in $\bh_{t}$. Define $\beta_{t} \triangleq (\beta_{t0}^{\top},
+\beta_{t1}^{\top})^{\top}$. The $Q$-learning algorithm is given below.
+
+\vspace{5mm}
+
+\noindent {\bf $Q$-learning Algorithm:}    
+\begin{center}
+  \begin{tabular}{| l p{3.3in} |}
+    \hline
+    Q1. Modeling: & Regress $Y$ on $\bH_{20}, \bH_{21}, A_{2}$ to
+    obtain \\ 
+    & $\widehat{Q}_{2} (\bH_{2}, A_{2}; \widehat{\beta}_{2}) =
+    \bH_{20}^{\top}\widehat{\beta}_{20} +
+    A_{2}\bH_{21}^{\top}\widehat{\beta}_{21}$. \\ 
+    & \\
+    Q2. Maximization: & Define $\widetilde{Y} \triangleq \max_{a_{2} \in \{
+      -1,1\}} \widehat{Q}_{2}(\bH_{2}, a_{2},
+    \widehat{\beta}_{2})$. \\  
+    & $\widetilde{Y} = \bH_{20}^{\top}\widehat{\beta}_{20} +
+    |\bH_{21}^{\top}\widehat{\beta}_{21}|$ is the predicted future
+    outcome assuming  the optimal decision is made at stage two. \\  
+    & \\
+    Q3. Modeling: & Regress $\widetilde{Y}$ on $\bH_{10}, \bH_{11}, A_{1}$ to 
+obtain \\
+    & $\widehat{Q}_{1} (\bH_{1}, A_{1}; \widehat{\beta}_{1}) =
+    \bH_{10}^{\top}\widehat{\beta}_{10} +
+    A_{1}\bH_{11}^{\top}\widehat{\beta}_{11}$. \\ 
+    \hline
+  \end{tabular}
+\end{center}
+The $t^{\hbox{\scriptsize th}}$-stage optimal decision rule then
+assigns the treatment $a_{t}$ that maximizes the estimated
+$Q_{t}$-function, 
+\begin{equation*}
+  \widehat{\pi}_{t}^{\hbox{\scriptsize Q-opt}}(\bh_{t}) = \arg\max_{a_t}
+  \widehat{Q}_{t}(\bh_{t}, a_{t}; \widehat{\beta}_{t}).
+\end{equation*}
+In $Q$-learning with linear models, this can be written as
+\begin{eqnarray*}
+  \widehat{\pi}_{t}^{\hbox{\scriptsize Q-opt}}(\bh_{t}) =
+  \mbox{sign}(\bh_{t1}^{\top}\widehat{\beta}_{t1}) 
+\end{eqnarray*}
+
+The first modeling step in the $Q$-learning algorithm is a standard
+multiple regression problem to which common model building and model
+checking techniques can be applied to find a parsimonious, well-fitting
+model.  The absolute value in the definition of $\widetilde{Y}$ arises
+when $A_{2}$ is coded as $\{-1, 1\}$, because $\arg\max_{a_{2}}
+\widehat{Q}_{2}(\bH_{2}, a_{2}; \widehat{\beta}_{2}) =
+\mbox{sign}(\bH_{21}^{\top}\widehat{\beta}_{21})$. The second modeling
+step (Q3) requires modeling the conditional expectation of
+$\widetilde{Y}$. This can be written as
+\begin{eqnarray}
+  \label{q1fn}
+  Q_{1}(\bH_{1}, A_{1}) &=& \mathbb{E}(\widetilde{Y} | \bH_{1}, A_{1})
+  \nonumber \\ 
+  &=& \mathbb{E} (\bH_{20}^{\top}\beta_{20} + |\bH_{21}^{\top}\beta_{21}|
+  \; |\;  \bH_{1}, A_{1}).
+\end{eqnarray}
+Due to the
+absolute value function, $\widetilde{Y}$ is a nonsmooth, nonmonotone 
+transformation of $\bH_{2}$. Thus, the linear model
+in step Q3 is generally misspecified. In addition, the nonsmooth,
+nonmonotone $\max$ operator
+in step Q2 leads to difficult nonregular inference for the parameters
+that index the first stage $Q$-function \citep{Rob:04,
+  Cha+etal:10, Lab+etal:10, Son+etal:11}. In the next section, we
+develop an alternative to $Q$-learning, which we call $IQ$-learning, that
+addresses the applied problem of building good models for the first-stage
+$Q$-function and avoids model misspecification for a large class of 
+generative models. 
+
+\subsection{Interactive Q-learning (IQ-learning)}
+$IQ$-learning differs from $Q$-learning in the order in which
+maximization step (Q2 in the $Q$-learning algorithm) is performed.  We
+demonstrate how the maximization step can be delayed, enabling all
+modeling to be performed \emph{before} this nonsmooth, nonmonotone
+transformation.  This reordering of modeling and maximization steps
+facilitates the use of standard, \emph{interactive} model building
+techniques because all terms to be modeled are linear, and hence
+smooth and monotone transformations of the data. For a large class of
+generative models, $IQ$-learning more accurately estimates the
+first-stage $Q$-function, resulting in a higher-quality estimated
+decision rule \citep{Lab+etal:13}. Another advantage of $IQ$-learning
+is that in many cases, conditional mean and variance modeling
+techniques \citep{Car+Rup:88} offer a nice framework for the necessary
+modeling steps.  These mean and variance models are interpretable, and
+the coefficients indexing them enjoy normal limit theory. Thus, they
+are better suited to inform clinical practice than the misspecified
+first-stage model in $Q$-learning whose indexing parameters are
+nonregular.  However, the mean-variance modeling approach
+we advocate here is not necessary and other modeling techniques
+may be applied as needed.  Indeed, a major advantage and motivation
+for $IQ$-learning is the ability for the seasoned applied 
+statistician to build high-quality models using standard 
+interactive techniques for model diagnosis and validation.  
+
+$IQ$- and $Q$-learning do not differ at
+step one (Q1), which we refer to as the \emph{second-stage
+  regression}. Define
+$m(\bH_{2}; \beta_{2}) \triangleq \bH_{20}^{\top}\beta_{20}$, and 
+$\Delta (\bH_{2}; \beta_{2}) \triangleq \bH_{21}^{\top}\beta_{21}.$
+We call the first term the \emph{main effect function} and the
+second the \emph{contrast function}. $\Delta(\bH_{2}; \beta_{2})$
+  ``contrasts'' the quality of the second-stage treatments:
+  % \begin{equation*}
+  $\Delta (\bH_{2}; \beta_{2}) = \frac{1}{2}\{ Q_{2}(\bH_{2}, A_{2} =
+  1) - Q_{2}(\bH_{2}, A_{2}=-1)\}.$
+  % \end{equation*}
+  In the $IQ$-learning framework, the first-stage $Q$-function is
+  defined as
+  \begin{equation}
+    \label{iq1fn}
+    Q_{1}(\bh_{1}, a_{1}) \triangleq \mathbb{E}( m(\bH_{2}; \beta_{2}) |
+    \bH_{1}=\bh_{1}, A_{1}=a_{1}) + \int |z|g(z \mid \bh_{1}, a_{1})dz, 
+  \end{equation}
+  where $g(\cdot \mid \bh_{1}, a_{1})$ is the conditional distribution of
+  the contrast function $\Delta(\bH_{2}; \beta_{2})$ given
+  $\bH_{1}=\bh_{1}$ and $A_{1}=a_{1}$. In fact, Equation~\ref{iq1fn} is
+  equivalent to the representation of $Q_{1}$ in Equation~\ref{q1fn}, only
+  the conditional expectation has been split into two separate
+  expectations and the second has been written in integral form.
+  Instead of modeling the conditional expectation in Equation~\ref{q1fn}
+  directly, $IQ$-learning separately models $\mathbb{E}( m(\bH_{2};
+  \beta_{2}) | \bH_{1}=\bh_{1}, A_{1}=a_{1})$ and $g(\cdot \mid
+  \bh_{1}, a_{1})$. Although $IQ$-learning trades one 
+  modeling step (Q3) for two, splitting up the conditional
+  expectation in Equation~\ref{q1fn} is advantageous because the terms that
+  require modeling are now smooth, monotone functionals of the
+  data. The maximization occurs when the integral in Equation~\ref{iq1fn} is
+  computed, which occurs after the conditional density $g(\cdot \mid
+  \bh_{1}, a_{1})$ has been estimated.  The $IQ$-learning algorithm is 
+  described next.
+  
+\newpage  
+  \noindent {\bf $IQ$-learning Algorithm:}
+  \begin{center}
+    \begin{tabular}{|l p{3.3in} |}
+      \hline
+      IQ1. Modeling: & Regress $Y$ on $\bH_{20}, \bH_{21}, A_{2}$ to
+      obtain \\ 
+      & $\widehat{Q}_{2}^{IQ} (\bH_{2}, A_{2}; \widehat{\beta}_{2}) =
+      \bH_{20}^{\top}\widehat{\beta}_{20} +
+      A_{2}\bH_{21}^{\top}\widehat{\beta}_{21}$.  \\ 
+      & \\
+      IQ2. Modeling: & Regress observed data
+      $\{\bH_{20,i}^{\top}\widehat{\beta}_{20}\}_{i=1}^{n}$ on 
+      $\{\bH_{10,i}, \bH_{11,i}, A_{1,i}\}_{i=1}^{n}$ to obtain an estimator 
+$\widehat{\ell}(\bH_{1},
+      A_{1})$ of $\mathbb{E}(\bH_{20}^{\top}\beta_{20} | \bH_{1},
+      A_{1})$. \\ 
+      & \\
+      IQ3. Modeling: & Use $\{ (\bH_{21,i}^{\top}\widehat{\beta}_{21},
+      \bH_{1,i}, A_{1,i}) \}_{i=1}^{n}$ to obtain an estimator
+      $\widehat{g}(\cdot \mid \bH_{1}, A_{1})$ of 
+$g(\cdot \mid \bH_{1}, A_{1})$. \\ 
+      & \\
+      IQ4. Maximization: & Combine the above estimators to form \\  
+      & $\widehat{Q}_{1}^{IQ}(\bH_{1}, A_{1})$ =
+      $\widehat{\ell}(\bH_{1},A_{1})$ + $ \int |z|
+      \widehat{g}(z \mid \bH_{1}, A_{1})dz$. \\ 
+      \hline
+    \end{tabular}
+  \end{center}
+  The $IQ$-learning estimated optimal DTR
+  assigns the treatment at stage $t$ as the maximizer of the estimated
+  stage-$t$ $Q$-function
+  % \begin{equation*}
+  $\widehat{\pi}_{t}^{\hbox{\scriptsize IQ-opt}}(\bh_{t}) = \arg\max_{a_{t}}
+  \widehat{Q}_{t}^{IQ}(\bh_{t}, a_{t}; \widehat{\beta}_{t})$.
+  % \end{equation*}
+
+\subsection{Remark about density estimation in IQ3}
+
+Step IQ3 in the $IQ$-learning algorithm requires estimating a
+one-dimensional conditional density. In \citet{Lab+etal:13} we
+accomplish this using mean-variance, location-scale estimators of
+$g(\cdot \mid \bh_1, a_1)$   of the form
+%
+%
+%
+\begin{equation*}\label{locationScaleDensity}
+\widehat{g}(z \mid \bh_1, a_1) = \frac{1}{\widehat{\sigma}(\bh_1, a_1)}
+\widehat{\phi}\left(
+\frac{z - \widehat{\mu}(\bh_1, a_1)}{\widehat{\sigma}(\bh_1, a_1)} \right),
+\end{equation*}
+%
+%
+%
+where $\widehat{\mu}(\bh_1, a_1)$ is an estimator of $\mu(\bh_1,
+a_1)\triangleq 
+\mathbb{E}\left\{ \Delta(\bH_2; \beta_2) \mid \bH_1=\bh_1, A_1 = a_1\right\}$,
+$\widehat{\sigma}^2(\bh_1, a_1)$ is an estimator of $\sigma^2(\bh_1, a_1)
+\triangleq \mathbb{E}\left\{(\Delta(\bH_2; \beta_2) - \mu(\bh_1, a_1))^2\mid
+\bH_1=\bh_1,
+  A_1=a_1\right\}$, and $\widehat{\phi}$ is an estimator of the density of
+the standardized residuals $\left\{ \Delta(\bH_2; \beta_2) - \mu(\bh_1, a_1)
+\right\} / \sigma(\bh_1, a_1)$, say $\phi_{h_1,a_1}$, which we assume
+does not depend on the history $\bh_1$ or the treatment
+$a_1$. Mean-variance function modeling tools are well-studied and applicable
+in many settings \citep{Car+Rup:88}.  Currently, \pkg{DynTxRegime}
+implements mean-variance modeling steps to estimate $g(\cdot \mid
+\bh_1, a_1)$ with the option of using a standard normal density or
+empirical distribution estimator for $\widehat{\phi}$. 
+
+  \section[Using the DynTxRegime Package for IQ-learning]
+           {Using the \pkg{DynTxRegime} Package for IQ-learning} 
+  
+  \subsection{Preparing dataset bmiData}
+  
+The examples in this section will be illustrated using a
+simulated dataset called \pkg{bmiData} which is included in the
+\pkg{DynTxRegime} package. The data are generated to mimic a two-stage
+SMART of body mass index (BMI) reduction with two treatments at each
+stage.  The variables, treatments, and outcomes in \pkg{bmiData} were
+based on a small subset of variables collected in a clinical trial
+studying the effect of meal replacements (MRs) on weight loss and BMI
+reduction in obese adolescents; see \citet{Ber+etal:10} for a complete
+description of the original randomized trial. Descriptions of
+the generated variables in \pkg{bmiData} are given in Table
+(\ref{vars}). Baseline covariates include \code{gender}, \code{race},
+\code{parent\_BMI}, and \code{baseline\_BMI}. Four- and twelve-month
+patient BMI measurements were also included to reflect the original
+trial design. In the generated data,
+treatment was randomized to meal replacement (MR) or conventional diet
+(CD) at both stages, each with probability 0.5. In the original
+study, patients randomized to CD in stage one remained on CD with
+probability one in stage two.  Thus, our generated data arises from a
+slightly difference
+design than that of the original trial.  In addition,
+some patients in the original data set were missing the final twelve
+month response as well as various first- and second-stage covariates.
+Our generated data is complete, and the illustration of $IQ$- and
+$Q$-learning with \pkg{DynTxRegime} that follows is presented under the
+assumption that missing data have been addressed prior
+to using these methods (for example, using an appropriate imputation strategy). 
+  \begin{table}
+    \begin{center}
+      \begin{tabular}{|lcp{11cm}|}\hline
+        \code{gender} $\in \{0, 1\}$ & \,:\,& patient gender, coded
+        female (0) and male (1). \\   
+        \code{race} $\in \{0, 1\}$ & \, : \, & patient race, coded
+        African American (0) or other (1). \\ 
+        \code{parent\_BMI} $\in \mathbb{R}$ & \, : \, & parent BMI
+        measured at baseline. \\ 
+        \code{baseline\_BMI} $\in \mathbb{R}$ & \, : \, & patient BMI
+        measured at baseline. \\ 
+        \code{A1} $\in \lbrace -1, 1\rbrace$ &\,:\,& first-stage randomized
+        treatment, coded so that \code{A1} = 1 corresponds to meal replacement
+        (MR) and \code{A1} = -1 corresponds to conventional diet
+        (CD). \\  
+        \code{month4\_BMI} $\in \mathbb{R}$ & \, : \, & patient BMI
+        measured at month 4. \\ 
+        \code{A2} $\in \lbrace -1, 1\rbrace$ &\,:\,& second-stage randomized
+        treatment, coded so that \code{A2} = 1 corresponds to meal replacement
+        (MR) and \code{A2} = -1 corresponds to conventional diet
+        (CD). \\  
+        \code{month12\_BMI} $\in \mathbb{R}$ &\,:\,& patient BMI
+        measured at month 12.\\ 
+        \hline
+      \end{tabular}
+      \caption{Description of variables in \pkg{bmiData}.}\label{vars}
+    \end{center}
+  \end{table}
+
+<<echo=false>>=
+options(width=70)
+@ 
+After installing {\bf DynTxRegime}, load the package:
+<<>>=
+library(DynTxRegime)
+@ 
+Next, load {\bf bmiData} into the workspace with
+<<>>=
+data (bmiData)
+@ 
+The generated dataset {\bf bmiData} is a data frame with 210 rows
+corresponding to patients and 8 columns corresponding to covariates,
+BMI measurements, and assigned treatments.   
+<<>>=
+dim (bmiData)
+head (bmiData)
+@ 
+Recode treatments Meal Replacement (MR) and Conventional Diet (CD) as
+1 and -1, respectively.
+<<>>=
+bmiData$A1[which (bmiData$A1=="MR")] = 1
+bmiData$A1[which (bmiData$A1=="CD")] = -1
+bmiData$A2[which (bmiData$A2=="MR")] = 1
+bmiData$A2[which (bmiData$A2=="CD")] = -1
+bmiData$A1 = as.numeric (bmiData$A1)
+bmiData$A2 = as.numeric (bmiData$A2)
+@ 
+We use the negative percent change in BMI at month 12 from baseline as
+our final outcome:
+<<>>=
+y <- -100*(bmiData$month12_BMI -
+           bmiData$baseline_BMI)/bmiData$baseline_BMI
+@ 
+Thus, higher values indicate greater BMI loss, a desirable clinical
+outcome. We will next show how to implement $IQ$-learning with the 
+\pkg{DynTxRegime} package to obtain an estimate of the optimal DTR,
+$\widehat{\boldsymbol \pi}^{IQ-\hbox{\scriptsize opt}} = 
+(\widehat{\pi}_{1}^{IQ-\hbox{\scriptsize opt}},
+\widehat{\pi}_{2}^{IQ-\hbox{\scriptsize opt}})$, that
+maximizes the expected BMI reduction. 
+
+\subsection{IQ-learning functions}
+
+The current version of the \pkg{DynTxRegime} package allows
+specification of models linear in the treatment variable
+ at all modeling steps. An advantage of
+$IQ$-learning over $Q$-learning is that for a large class of
+generative models, linear models are correctly specified at each
+modeling step (Laber et al., 2013).  In general, this is not true for
+$Q$-learing at the first-stage. In our illustrations, we skip some of
+the typical exploratory techniques that a careful analyst would employ
+to find the best-fitting models.  These steps would not be meaningful
+with the \pkg{bmiData} dataset because it was simulated with linear
+working models and would only detract from our main focus, which is to
+present the steps of the $IQ$-learning algorithm using the functions
+in \pkg{DynTxRegime}.  Analysts who use $IQ$-learning should employ
+standard data exploration techniques between each modeling step.
+Another consequence of using generated data is that we will not
+intrepret any coefficients or comment on model fit. In fact, most of
+the $R^2$ statistics are nearly 1 and many terms appear highly
+significant, reflecting the fact that the data are not real. All
+models and decision rules estimated in this section are strictly
+illustrative. In addition, the results in this section are not
+representative of the results of the original meal replacement study.
+
+\vspace{5mm}
+
+\noindent {\bf Defining models}
+The current version of the \pkg{DynTxRegime} package uses the \pkg{modelObj}
+package to define models and regression methods to be used for analysis. This
+choice is intended to generalize the methods available in the 
+\pkg{DynTxRegime} package beyond simple linear models. 
+The reader is referred to the vignette for the \pkg{modelObj}
+package for details. In general, the model, regression
+method, and prediction method are specified as follows:
+<<>>=
+moMain <- buildModelObj(model = ~ gender + parent_BMI + month4_BMI,
+                   solver.method = 'lm',
+                   predict.method = 'predict.lm',
+                   predict.args = list(type='response'))
+@ 
+
+
+\noindent {\bf STEP IQ1: second-stage regression}
+
+\vspace{2mm}
+
+The first step in the $IQ$-learning algorithm is to model the response
+as a function of second-stage history variables and treatment. We 
+model the second-stage $Q$-function as a linear function of
+\code{gender}, \code{parent\_BMI}, \code{month4\_BMI}, and
+\code{A2}, fitting the model using least squares.  All methods in the
+\pkg{DynTxRegime} package require that the model be specified as
+a main effects (ME) model and a contrast (c) model. These models can be 
+fit separately using an iterative method or can be combined as
+ME + tx:C. Below, the ME and C models are combined and fit as a single
+model (iter = 0).
+<<>>=
+moMain <- buildModelObj(model = ~ gender + parent_BMI + month4_BMI,
+                   solver.method = 'lm')
+moCont <- buildModelObj(model = ~ parent_BMI + month4_BMI,
+                   solver.method = 'lm')
+fitIQ2 <- iqLearnSS(moMain = moMain, 
+                    moCont = moCont, 
+                    data = bmiData,
+                    response = y, 
+                    txName = 'A2', 
+                    iter = 10)
+@ 
+In this example, the function \code{iqLearnSS()} creates an object of class
+\code{iqLearnSS} that contains the object returned by the user
+specified regression method (e.g., `lm') in addition to 
+several other components. The user can specify any
+model, but it must include the main effect
+of treatment (moMain) and at least one treatment interaction term (moCont).
+If exploratory work suggests there are no treatment-by-covariate interactions 
+at the second stage, $IQ$-learning has no advantage over $Q$-learning, and 
+it would be appropriate to model the conditional expectation of 
+$\widetilde{Y}$ directly at the first stage.
+In addition to the two modelObjs, the function \code{iqLearnSS()} requires as 
+input: 
+\code{data} a data.frame of patient covariates;
+\code{response} the response vector of interest;
+\code{txName} a character string specifying the name of the treatment 
+variable in the provided dataset; and
+\code{iter}. The main effect and contrast models can be fitted as a
+single model (\code{iter}=0) or using an iterative method (\code{iter} > 0),
+where \code{iter} is the maximum number of iterations to attain convergence.
+
+There are several methods available for objects of class \code{iqLearnSS},
+including: \code{coef()}, \code{contrast()}, \code{fitObject()}, \code{main()},
+ \code{optTx()}, \code{plot()}, \code{residuals()} and \code{summary()}. 
+Methods \code{coef()} and \code{plot()} must be defined by the regression 
+method specified by the user. 
+Method \code{fitObject()} retrieves the value object returned by the regression
+method, and thus all functionality available through said method can be accessed.
+Methods \code{contrast()} and \code{main()} return the fitted contrast 
+function and main function, respectively.
+Method \code{optTx()} returns the recommended second-stage treatment for
+all patients in the study.
+
+To illustrate some of these methods:
+to print the regression output we can call a 
+\code{summary(iqLearnSS)} or retrieve the fit object and calls its summary
+methood.
+<<>>=
+summary(fitIQ2)
+fitObj <- fitObject(fitIQ2)
+summary(fitObj[[ "MainEffect" ]])
+summary(fitObj[[ "Contrast" ]])
+@ 
+The \code{plot()} function can be used to obtain fit diagnostics.
+Figure ~\ref{s2diag} shows the residual diagnostics for this example.
+\begin{figure}[here!]
+\begin{center}
+<<fig=TRUE, echo=FALSE>>=
+plot(fitIQ2,sub.caption="Second-Stage Regression")
+@
+\end{center}
+\caption{Residual diagnostic plots from the second-stage regression
+  in $IQ$-learning.}\label{s2diag}
+\end{figure}
+The \code{coef()} function can be used to retrieve the
+estimated coefficients,
+<<>>=
+coef(fitIQ2)
+@ 
+
+\vspace{5mm}
+
+\noindent {\bf STEP IQ2: main effect function regression}
+
+\vspace{2mm}
+
+The next step in the $IQ$-learning algorithm is to model the
+conditional expectation of the main effect term given first-stage
+history variables and treatment.  We accomplish this by regressing
+$\{\bH_{20,i}^{\T}\widehat{\beta}_{20}\}_{i=1}^{n}$ on a linear
+function of $\{\bH_{1,i}, A_{1,i}\}_{i=1}^{n}$ using the function
+\code{iqLearnFS()} with argument \code{step}=`M', 
+which creates an object of class \code{iqLearnFS.ME}. 
+The \code{iqLearnFS()} function extracts
+the estimated vector of main effect terms from the \code{iqLearnSS}
+object to use as the response variable in the regression. 
+<<>>=
+moMain <- buildModelObj(model = ~ gender + race + parent_BMI + baseline_BMI,
+                   solver.method = 'lm',
+                   predict.method = 'predict.lm',
+                   predict.args = list(type='response'))
+moCont <- buildModelObj(model = ~ gender + parent_BMI,
+                   solver.method = 'lm',
+                   predict.method = 'predict.lm',
+                   predict.args = list(type='response'))
+fitIQ1main = iqLearnFS(moMain = moMain, 
+                       moCont = moCont, 
+                       data = bmiData,
+                       step = 'M', 
+                       object = fitIQ2, 
+                       txName = 'A1', 
+                       iter = 0)
+summary(fitIQ1main)
+@ 
+The user can specify any model, but it must include the main effect of treatment
+\code{A1}. 
+If no treatment interactions are desired, \code{moCont} should be 
+specified as \code{NULL}. 
+In addition to the two \code{modelObj}s 
+(or a single \code{modelObj} and \code{NULL}, 
+the function \code{iqLearnFS()} requires as 
+input: 
+\code{data} a data.frame of patient covariates;
+\code{step} one of c(`M',`C') indicating which term of the second-stage
+regression is the response variable;
+\code{object} an object of class \code{iqLearnSS}, which contains the 
+second-stage regression;
+\code{txName} a character string specifying the name of the treatment 
+variable in the provided dataset; and
+\code{iter}. The main effect and contrast models can be fitted as a
+single model (\code{iter}=0) or using an iterative method (\code{iter} > 0),
+where \code{iter} is the maximum number of iterations to attain convergence.
+Again, there are several methods available for objects of class 
+\code{iqLearnFS.ME},
+including: \code{coef()}, \code{contrast()}, \code{fitObject()}, \code{main()},
+ \code{plot()}, \code{residuals()} and \code{summary()}. 
+See description of second-stage regression for further details on these
+methods.
+
+In our example, 
+\code{plot()} gives residual diagnostic
+plots from the fitted regression model, shown in
+Figure~\ref{s1mainDiag}. 
+\begin{figure}[here!]
+\begin{center}
+<<fig=TRUE, echo=FALSE>>=
+plot(fitIQ1main)
+@
+\end{center}
+\caption{Residual diagnostic plots from the regression model for the
+  main effect term.}\label{s1mainDiag}
+\end{figure}
+
+\vspace{5mm}
+
+\noindent {\bf STEP IQ3: contrast function density modeling}
+
+\vspace{2mm}
+
+The final modeling step in $IQ$-learning is to model the
+conditional density of the contrast function given first-stage history
+variables and treatment.  We will accomplish this by considering the
+class of location-scale density models and employing standard
+conditional mean and variance modeling techniques.  Thus, we begin by 
+modeling the conditional mean of the contrast function using 
+\code{iqLearnFS()} with \code{step} = `C'.
+<<>>=
+moMain <- buildModelObj(model = ~ gender + race + parent_BMI + baseline_BMI,
+                   solver.method = 'lm',
+                   predict.method = 'predict.lm',
+                   predict.args = list(type='response'))
+moCont <- buildModelObj(model = ~ gender + parent_BMI + baseline_BMI,
+                   solver.method = 'lm',
+                   predict.method = 'predict.lm',
+                   predict.args = list(type='response'))
+fitIQ1cm = iqLearnFS(moMain = moMain, 
+                       moCont = moCont, 
+                       data = bmiData,
+                       step = 'C', 
+                       object = fitIQ2, 
+                       txName = 'A1', 
+                       iter = 0)
+summary(fitIQ1cm)
+@ 
+The user can specify any model, but it must include the main effect of treatment
+\code{A1}. 
+If no treatment interactions are desired, \code{moCont} should be 
+specified as \code{NULL}. 
+In addition to the two \code{modelObj}s 
+(or a single \code{modelObj} and \code{NULL}, 
+the function \code{iqLearnFS()} requires as 
+input: 
+\code{data} a data.frame of patient covariates;
+\code{step} one of c(`M',`C') indicating which term of the second-stage
+regression is the response variable;
+\code{object} an object of class \code{iqLearnSS}, which contains the 
+second-stage regression;
+\code{txName} a character string specifying the name of the treatment 
+variable in the provided dataset; and
+\code{iter}. The main effect and contrast models can be fitted as a
+single model (\code{iter}=0) or using an iterative method (\code{iter} > 0),
+where \code{iter} is the maximum number of iterations to attain convergence.
+Again, there are several methods available for objects of class 
+\code{iqLearnFS.C},
+including: \code{coef()}, \code{contrast()}, \code{fitObject()}, \code{main()},
+ \code{plot()}, \code{residuals()} and \code{summary()}. 
+See description of second-stage regression for further details on these
+methods.
+
+Figure (\ref{s1cmDiag}) displays the residual diagnostics produced by  
+\texttt{plot()}.
+\begin{figure}[here!]
+\begin{center}
+<<fig=TRUE, echo=FALSE>>=
+plot (fitIQ1cm)
+@
+\end{center}
+\caption{Residual diagnostic plots from the linear regression model for the
+  contrast function mean.}\label{s1cmDiag}
+\end{figure}
+
+After fitting the model for the conditional mean of the contrast
+function, we must specify a model for the variance of the
+residuals. Standard approaches can be used to determine if a constant
+variance fit is sufficient.  If so, 
+<<>>=
+fitIQ1var = iqLearnVar (fitIQ1cm)
+@ 
+is called to estimate the common standard deviation.
+An object of class \code{iqLearnFS.VHom} is returned, which
+contains the estimated common standard deviation of the contrast mean fit 
+residuals (\code{stdDev}), the
+vector of standardized residuals for each patient in the dataset
+(\code{residuals}), among others.
+
+If the variance is thought to be non-constant across
+histories $ \bH_{1} $ and/or treatment $A_{1}$,  a log-linear model
+for the squared residuals can be used. As before, the formula should be only
+right-hand sided and must include the main effect of treatment
+\code{A1}. 
+<<>>=
+moMain <- buildModelObj(model = ~ gender + race + parent_BMI + baseline_BMI,
+                   solver.method = 'lm',
+                   predict.method = 'predict.lm',
+                   predict.args = list(type='response'))
+moCont <- buildModelObj(model = ~ parent_BMI,
+                   solver.method = 'lm',
+                   predict.method = 'predict.lm',
+                   predict.args = list(type='response'))
+
+fitIQ1var = iqLearnVar(object = fitIQ1cm,
+                       moMain = moMain,
+                       moCont = moCont,
+                       data = bmiData,
+                       iter = 0)
+summary(fitIQ1var)
+@ 
+In addition to the two \code{modelObj}s 
+(or a single \code{modelObj} and \code{NULL}, 
+the function \code{iqLearnFS()} requires as 
+input: 
+\code{data} a data.frame of patient covariates;
+\code{object} an object of class \code{iqLearnFS.C}; and
+\code{iter} the maximum number of iterations to attacin
+convergence. If \code{moMain} and \code{moCont} are to be combined
+into a single fit, \code{iter} = 0.
+Again, there are several methods available for objects of class 
+\code{iqLearnFS.VHet},
+including: \code{coef()}, \code{contrast()}, \code{fitObject()}, \code{main()},
+ \code{plot()}, \code{residuals()} and \code{summary()}. 
+See description of second-stage regression for further details on these
+methods.
+
+Figure (\ref{s1varDiag}) displays the residual diagnostics produced by 
+\texttt{plot()}.
+\begin{figure}[here!]
+\begin{center}
+<<fig=TRUE, echo=FALSE>>=
+plot (fitIQ1var)
+@
+\end{center}
+\caption{Residual diagnostic plots from the log-linear variance
+  model.}\label{s1varDiag} 
+\end{figure}
+
+The final step in the conditional density modeling process is to
+choose between the normal and empirical density estimators.  Based on
+empirical experiments \citep[see][]{Lab+etal:13}, we
+recommend choosing the empirical estimator by default, as not much is
+lost when the true density is normal.  
+
+!!!
+However, \code{plot()} with formal argument \code{y}=`d' can
+be used to inform the choice of density estimator. An object of type
+\code{iqLearnVar.VHet}
+can be plotted to obtain a normal QQ-plot of the
+standardized residuals, displayed in Figure~\ref{resids}.  If the
+observations deviate from the line, \code{dens=`nonpar'} should be
+used in the final $IQ$-learning step, IQ4.
+\begin{figure}[here!]
+\begin{center}
+<<fig=TRUE, echo=FALSE>>=
+plot (fitIQ1var)
+@ 
+\end{center}
+\caption{Normal QQ-plot of the standardized residuals obtained from
+  the contrast mean and variance modeling steps.}\label{resids}
+\end{figure}
+
+\vspace{5mm}
+
+\noindent {\bf STEP IQ4: combine first-stage estimators}
+
+\vspace{2mm}
+
+For the first-stage $IQ$-learning, 
+the function \code{optTx()} has four inputs: the previous three
+first-stage objects and the method to use for the density estimator,
+either \code{`norm'} or \code{`nonpar'}.
+It combines all of the first-stage modeling steps to estimate the
+first-stage optimal decision rule.  
+<<>>=
+fitIQ1 = optTx (x=fitIQ1main, y=fitIQ1cm, z=fitIQ1var, dens="nonpar")  
+@ 
+A vector of estimated optimal first-stage treatments for patients in
+the study is returned.
+
+\vspace{5mm}
+
+\noindent {\bf Recommend treatment with optTx()}
+
+\vspace{2mm}
+
+After estimating the optimal regime using the $IQ$-learning algorithm,
+the function \code{optTx()} can be used to recommend
+treatment for future patients.  
+To determine the recommended  first-stage treatment for a
+patient with observed data in \code{newdata}
+<<>>=
+newdata = data.frame(1, 1, 30, 35)
+colnames(newdata) <- c("gender","race","parent_BMI","baseline_BMI")
+optIQ1 = optTx(x = fitIQ1main, 
+               y = fitIQ1cm, 
+               z = fitIQ1var,
+               dens = "nonpar", 
+               newdata = newdata)
+optIQ1
+@ 
+As displayed above, a list is returned by \code{optTx()} that includes
+the value of the first-stage $Q$-function when $A_{1} = 1$ (\code{\$pos}) 
+and $A_{1}
+= -1$ (\code{\$neg}) as well as the recommended first-stage
+treatment for that patient, \code{\$optTx}. 
+
+For a patient with observed data in \code{newdata},  the recommended
+second-stage optimal treatment is obtained as
+<<>>= 
+newdata = data.frame(1, 30, 45)
+colnames(newdata) <- c("gender","parent_BMI","month4_BMI")
+optIQ2 = optTx(x = fitIQ2, 
+               newdata = newdata);
+optIQ2
+@ 
+Again, a list is returned by \code{optTx()} that includes
+the value of the second-stage $Q$-function when $A_{2} = 1$ (\code{\$pos}) 
+and $A_{2}
+= -1$ (\code{\$neg}) as well as the recommended second-stage
+treatment for that patient, \code{\$optTx}. 
+ 
+\subsection{Estimating Regime Value}
+
+We may wish to compare our estimated optimal regime to a standard of
+care or constant regime that recommends one treatment for all
+patients.  One  way to
+compare regimes is to estimate the value function. A plug-in estimator
+for $V^{{\boldsymbol \pi}}$ is
+\begin{equation*}
+  \widehat{V}^{{\boldsymbol \pi}} \triangleq \frac{\sum_{i=1}^{n} Y_{i} 
+\mathbbm{1}\{A_{1i}
+    = \pi_{1}(\bh_{1i})\} \mathbbm{1}\{A_{2i} =
+    \pi_{2}(\bh_{2i})\}}{\sum_{i=1}^{n} \mathbbm{1}\{A_{1i}
+    = \pi_{1}(\bh_{1i})\} \mathbbm{1}\{A_{2i} = \pi_{2}(\bh_{2i})\}},
+\end{equation*}
+where $Y_i$ is the $i^{\hbox{\scriptsize th}}$ patient's response,
+  $(A_{1i}, A_{2i})$ the randomized treatments and $(\bh_{1i},
+  \bh_{2i})$ the observed histories. This estimator is a weighted
+  average of the  outcomes observed from
+patients in the trial who received treatment in accordance with the
+ regime ${\boldsymbol \pi}$. It is more commonly known as the
+ Horvitz-Thompson estimator \citep{Hor+Tho:52}. 
+ The function \code{plugInValue()} estimates the value of a
+ regime using the plug-in estimator and also returns value estimates
+ corresponding to four non-dynamic regimes: \code{\$valPosPos} $(\pi_{1}=1,
+ \pi_{2}=1)$; \code{\$valPosNeg} $(\pi_{1}=1, \pi_{2}=-1)$; 
+ \code{\$valNegPos} 
+ $(\pi_{1}=-1, \pi_{2}=1)$; and \code{\$valNegNeg} $(\pi_{1}=-1,
+ \pi_{2}=-1)$. \code{plugInValue()} takes as input \code{optTx1}, a vector
+ of first-stage treatments assigned by the regime of interest;
+ \code{optTx2}, a vector of second-stage treatments assigned by the
+ regime of interest; \code{response}, the response vector; \code{tx1}, the
+ vector of first-stage randomized treatments received by patients in
+ the trial; and \code{tx2}, the
+ vector of second-stage randomized treatments.
+<<>>=
+fitIQ1 = optTx(x = fitIQ1main, 
+               y = fitIQ1cm, 
+               z = fitIQ1var, 
+               dens = "nonpar")  
+
+fitIQ2 = optTx(x = fitIQ2)  
+
+estVal = plugInValue (optTx1 = fitIQ1, 
+                optTx2 = fitIQ2, 
+                response = y, 
+                tx1 = bmiData$A1,   
+                tx2 = bmiData$A2)
+estVal
+@ 
+ 
+\section{Conclusion}
+
+We have demonstrated how to estimate an optimal two-stage DTR using
+the $IQ$-learning functions and tools in the R package 
+\pkg{DynTxRegime}.  As indicated by its name, Interactive $Q$-learning
+allows the analyst to interact with the data at each step of the
+$IQ$-learning process to build models that fit the data well and are
+interpretable.  At each model building step, the $IQ$-learning
+functions in \pkg{DynTxRegime} encourage the use of standard
+statistical methods for exploratory analysis, model selection, and
+model diagnostics. 
+
+\section*{Acknowledgments}
+
+The authors would like to thank Dr.\ Rene\'{e} Moore for discussions
+about meal replacement therapy for obese adolescents that informed the
+data generation model.
+
+\bibliographystyle{apalike}
+\bibliography{iq_cites.bib}
+
+\end{document}
