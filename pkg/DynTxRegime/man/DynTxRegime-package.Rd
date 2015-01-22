@@ -15,7 +15,7 @@ Doubly Robust optimal treatment regimes from a classification perspective.
 Package: \tab DynTxRegime\cr
 Type: \tab Package\cr
 Version: \tab 2.0\cr
-Date: \tab 2015-01-16\cr
+Date: \tab 2015-01-21\cr
 License: \tab GPL-2\cr
 Depends: \tab methods, modelObj, rgenoud\cr
 }
