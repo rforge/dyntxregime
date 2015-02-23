@@ -1,8 +1,7 @@
 \name{modelObj-package}
 \alias{modelObj-package}
 \docType{package}
-\title{
-A Regression Utility Package}
+\title{A Model Object Framework for Regression Analysis}
 \description{
 A utility package to facilitate the generalization of methods built on a regression framework.
 }
@@ -11,9 +10,9 @@ A utility package to facilitate the generalization of methods built on a regress
 Package: \tab modelObj\cr
 Type: \tab Package\cr
 Version: \tab 1.0\cr
-Date: \tab 2014-12-12\cr
+Date: \tab 2015-02-23\cr
 License: \tab GPL-2\cr
-Depends: \tab methods, compiler, stats, rpart\cr
+Depends: \tab methods\cr
 }
 Often, new statistical methods are developed on the framework of
 traditional regression or classification methods. To simplify the

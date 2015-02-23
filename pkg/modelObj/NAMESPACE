@@ -1,6 +1,4 @@
 import(methods)
-importFrom("stats","coef", "predict","residuals")
-importFrom("graphics","plot")
 export("buildModelObj")
 exportClass("modelObj",
             "modelObjFit")

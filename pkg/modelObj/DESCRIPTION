@@ -1,8 +1,8 @@
 Package: modelObj
 Type: Package
-Title: A Regression Utility Package
+Title: A Model Object Framework for Regression Analysis
 Version: 1.0
-Date: 2014-12-12
+Date: 2015-02-23
 Author: Shannon T. Holloway
 Maintainer: Shannon T. Holloway <sthollow@ncsu.edu>
 Description: A utility library to facilitate the generalization of methods built on a regression framework.
