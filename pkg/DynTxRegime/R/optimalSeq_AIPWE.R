@@ -106,7 +106,7 @@ optimalSeq_AIPWE <- function(eta,
   ind <- matrix(data = 0L,  
                 nrow = nSamples,  
                 ncol = nDP)
-  lambda <- matrix(data = 0.0,  
+  lambda <- matrix(data = 1.0,  
                    nrow = nSamples,  
                    ncol = nDP)
   leta <- as.list(eta)
@@ -274,8 +274,8 @@ optimalSeq_AIPWE <- function(eta,
     }
 
     for( k in 1L:length(sset) ) {
-      m2 <- reg.g == sset[k]
-      if( sum(m2) == 0L ) next
+      m2 <- (reg.g == sset[k]) & !is.na(reg.g)
+      if( sum(m2, na.rm=TRUE) == 0L ) next
       lambda[m2,i] <- 1.0 - pik[m2,sset[k]]
     }
   }
@@ -373,7 +373,7 @@ optimalSeq_AIPWE <- function(eta,
   # mean|   --------------------- Y + DR |                                   #
   #     (      Pr(C_{eta} > K)           )                                   #
   #--------------------------------------------------------------------------#
-  mn <- sum(DR + AC/pc*as.vector(response))/as.numeric(nSamples)
+  mn <- sum(DR + AC/pc*as.vector(response), na.rm=TRUE)/as.numeric(nSamples)
 
   return(mn)
 }

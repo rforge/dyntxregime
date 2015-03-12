@@ -110,7 +110,8 @@ optimalSeq <- function(...,
                        regimes,
                        fSet = NULL,
                        refit = FALSE,
-                       iter = 0L){
+                       iter = 0L,
+                       suppress = FALSE){
 
   #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
   #++++++                         Verify Input                         ++++++#
@@ -208,7 +209,7 @@ optimalSeq <- function(...,
                         names(objs)[i], ".", sep=""))
       }
 
-    } else if( is(objs[[i]], "list") ) {
+    } else if( is(objs[[i]], "list") && !is(objs[[i]][[1]], "NULL") ) {
 
       if( is(objs[[i]][[1L]], 'modelObj') ) {
         clx <- 'ModelObj'
@@ -234,7 +235,7 @@ optimalSeq <- function(...,
 
       objs[[i]] <- new(clxname,
                        loo = objs[[i]])
-    } else {
+    } else if( !is(objs[[i]][[1]], "NULL") ) {
 
       stop(paste(names(objs)[i], " must be an object of class modelObj, ",
                  "a list of objects of class modelObj, or ",
@@ -532,6 +533,6 @@ optimalSeq <- function(...,
                 optTx = optTx,
                 txInfo = txInfo,
                 call = call)
-  show(result)
+  if( !suppress ) show(result)
   return(result)
 }

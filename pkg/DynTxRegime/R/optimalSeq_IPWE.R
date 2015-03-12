@@ -161,8 +161,8 @@ optimalSeq_IPWE <- function(eta,
     }
 
     for( k in 1L:length(sset) ) {
-      m2 <- reg.g == sset[k]
-      if( sum(m2) == 0L ) next
+      m2 <- (reg.g == sset[k]) & !is.na(reg.g)
+      if( sum(m2, na.rm=TRUE) == 0L ) next
       lambda[m2,i] <- 1.0 - pik[m2,sset[k]]
     }
   }
@@ -216,7 +216,7 @@ optimalSeq_IPWE <- function(eta,
   # mean|   --------------------- Y + DR |                                   #
   #     (      Pr(C_{eta} > K)           )                                   #
   #--------------------------------------------------------------------------#
-  mn <- sum(AC/pc*as.vector(response))/as.numeric(nSamples)
+  mn <- sum(AC/pc*as.vector(response), na.rm=TRUE)/as.numeric(nSamples)
 
   return(mn)
 }

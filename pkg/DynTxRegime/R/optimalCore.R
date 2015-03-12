@@ -123,7 +123,7 @@ optimalCore <- function(moPropen,
                           names(objs)[i],".", sep=""))
       }
 
-    } else {
+    } else if( !is(objs[[i]][[1]], "NULL") ) {
 
       DeveloperError(paste(objs[[i]], "made it in as ",
                            paste(is(objs[[i]]),collapse=","), sep=""),

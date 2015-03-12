@@ -129,7 +129,6 @@ pickOutcomeModels <- function(moMain,
                               moCont, 
                               ndp){
 
-
   if( !is(moMain, "NULL") && is(moCont, "NULL") ){
 
     moContTemp <- NULL

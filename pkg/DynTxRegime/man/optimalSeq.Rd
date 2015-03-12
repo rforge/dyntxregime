@@ -13,7 +13,7 @@ point regimes. This method requires the rgenoud package.
 }
 \usage{
 optimalSeq(..., moPropen, moMain, moCont, data, response, txName, regimes,
- fSet = NULL, refit = FALSE, iter = 0)
+ fSet = NULL, refit = FALSE, iter = 0, suppress = FALSE)
 }
 \arguments{
 
@@ -178,6 +178,9 @@ fSet <- function(a1)
                  Note that if iter <= 0, all non-model components of the
                  {moMain} and {moCont} must be
                  identical. By default, the choices in moMain are used.}
+
+  \item{suppress}{an object of class logical. If TRUE, final screen prints 
+                  will be suppressed.}
 
 }
 
