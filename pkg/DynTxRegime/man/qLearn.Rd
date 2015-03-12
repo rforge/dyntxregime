@@ -8,7 +8,8 @@
              decision rule for the given stage using Q-learning.
 }
 
-\usage{ qLearn(..., moMain, moCont, data, response, txName, fSet=NULL, iter=0L) }
+\usage{ qLearn(..., moMain, moCont, data, response, txName, fSet=NULL, iter=0L,
+               suppress = FALSE) }
 
 \arguments{
   \item{\dots   }{ignored}
@@ -107,6 +108,8 @@ fSet <- function(a1)
                  identical. By default, the choices in moMain are used.}
 
 
+  \item{suppress }{Object of class logical. If TRUE, all screen prints will be 
+                   suppressed.}
 }
 
 \value{
