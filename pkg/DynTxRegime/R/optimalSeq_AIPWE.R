@@ -132,11 +132,13 @@ optimalSeq_AIPWE <- function(eta,
 
       txNm <- TxName(txInfo)
       rgm <- regimes
+      txObj <- txInfo
 
     } else {
 
       txNm <- TxName(txInfo[[i]])
       rgm <- regimes[[i]]
+      txObj <- txInfo[[i]]
 
     }
 
@@ -159,6 +161,17 @@ optimalSeq_AIPWE <- function(eta,
     } else {
       reg.g <- as.integer(round(reg.g,0L))
     }
+
+    #----------------------------------------------------------------------#
+    # Verify that value returned by regime is allowed by fSet              #
+    #----------------------------------------------------------------------#
+    for( ti in 1L:length(txObj@subsets) ) {
+      inss <- txObj@ptsSubset %in% names(txObj@subsets)[ti]
+      tst <- reg.g[inss] %in% txObj@subsets[[ti]]
+      if( !all(tst) ) stop("regime returns a value not allowed by fset.")
+    }
+    
+    
 
     #----------------------------------------------------------------------#
     # move j to point to next unused eta value in leta                     #
