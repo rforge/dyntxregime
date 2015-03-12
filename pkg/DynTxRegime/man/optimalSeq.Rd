@@ -56,7 +56,8 @@ moPropen@predict.args <- list("type"="response",
                   and no value is provided in propenMissing, it is
                   assumed that the smallest valued treatment option is missing.}
 
- \item{moMain   }{a single object of class modelObj or a list of objects of 
+ \item{moMain   }{a single object of class modelObj or NULL
+                  or a list of objects of 
                   class modelObj or {modelObjSubset}.
                   This object defines the models and R
                   methods to be used to obtain parameter estimates and
@@ -66,7 +67,8 @@ moPropen@predict.args <- list("type"="response",
                   the prediction on the scale of the response variable.
                   See ?modelObj and/or ?modelObjSubset for details.}
 
- \item{moCont   }{a single object of class modelObj or a list of objects of 
+ \item{moCont   }{a single object of class modelObj or NULL 
+                  or a list of objects of 
                   class modelObj or {modelObjSubset}.
                   This object defines the models and R
                   methods to be used to obtain parameter estimates and
