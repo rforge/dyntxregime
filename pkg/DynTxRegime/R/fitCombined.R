@@ -156,7 +156,7 @@ fitCombined <- function(moMain,
 
     #----------------------------------------------------------------------#
     # Set tx to zero  to obtain main effects contribution to predicted     #
-    # response. (predict method of package modelObj)                       #                                                     #
+    # response. (predict method of package modelObj)                       #
     #----------------------------------------------------------------------#
     base <- 0L
     data[,txName] <- base

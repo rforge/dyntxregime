@@ -240,7 +240,7 @@ verifyTxvec <- function(txvec, levels_in_data) {
     UserError("input, msg")
   }
 
-  if( !all(txvec[[2]] %in% levels_in_data) ) {
+  if( !all(txvec[[2]] %in% c(NA,levels_in_data)) ) {
     msg <- paste("fSet returned treatment options not present in ",
                  "the original data.", paste(txvec[[2]],collapse=","),
                  "{",paste(levels_in_data,collapse=","),"}",sep="")

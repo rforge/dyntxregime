@@ -263,34 +263,19 @@ qLearnEst <- function(moMain,
       vals[,i] <- PredictMain(fitO, newdata) + PredictCont(fitO, newdata)
     }
 
-    #----------------------------------------------------------------------#
-    # Determine which of the txs leads to the maximum value                #
-    #----------------------------------------------------------------------#
-    col <- max.col(m = vals, ties.method = "first")
-    optTx[use4fit] <- colnames(vals)[ col[use4fit] ]
+    for( i in 1L:length(subsets) ) {
+      inss <- ptsSubset[use4fit] %in% names(subsets)[i]
+      rmss <- !(modelSubset %in% subsets[[i]])
+      vals[inss,rmss] <- NA
+    }
 
     #----------------------------------------------------------------------#
     # Store value function                                                 #
     #----------------------------------------------------------------------#
     Ytilde[use4fit] <- apply(X = vals, 
                              MARGIN = 1L, 
-                             FUN = max)
-  }
-
-  #------------------------------------------------------------------------#
-  # For patients with only 1 treatment option, set optimal tx to option    #
-  # Note that their Ytilde will be the response as sent into the call      #
-  #------------------------------------------------------------------------#
-  useGrps <- which(sapply(X = subsets, FUN = length) == 1L)
-
-  if( length(useGrps) != 0L ) {
-    use4fit <- ptsSubset %in% names(subsets)[useGrps]
-
-    optTx[use4fit] <- sapply(X = ptsSubset[use4fit],
-                             FUN = function(x){subsets[[x]]})
-  } else {
-    use4fit <- array(data = FALSE,
-                     dim = length(response))
+                             FUN = max,
+                             na.rm = TRUE)
   }
 
   #--------------------------------------------------------------------------#

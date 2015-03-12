@@ -80,7 +80,8 @@ qLearn <- function(...,
                    response, 
                    txName, 
                    fSet = NULL, 
-                   iter = 0L){
+                   iter = 0L,
+                   suppress = FALSE){
 
 
   #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
@@ -265,7 +266,14 @@ qLearn <- function(...,
 
   }
 
+  for( i in 1L:length(txInfo@subsets) ) {
+    inss <- txInfo@ptsSubset %in% names(txInfo@subsets)[i]
+    rmss <- !(nms %in% txInfo@subsets[[i]])
+    qFunctions[inss,rmss] <- NA
+  }
+
   q2opt <- max.col(qFunctions, ties.method="first")
+
   if( is(data[,txName], "factor") ) {
     optTx <- factor(colnames(qFunctions)[q2opt],
                     levels = colnames(qFunctions))
@@ -281,7 +289,7 @@ qLearn <- function(...,
                 est,
                 txInfo)
 
-  show(result)
+  if(!suppress) show(result)
 
   return(result)
 }
