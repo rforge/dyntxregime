@@ -156,70 +156,52 @@ setMethod(f = "ModelObjectFit",
 setMethod(f = "OptTx",    
           signature = c(x = "OptimalSeq",
                         newdata = "missing"), 
-          definition = function(x, newdata, ...){  
-                         return( x@optTx ) 
+          definition = function(x, newdata, dp, ...){  
+                         if(missing(dp)) stop("Must provide dp")
+                         return( x@optTx[,dp] ) 
                        } )
 
 setMethod(f = "OptTx",
           signature = c(x = "OptimalSeq", 
                         newdata = "data.frame"),
-          definition = function (x, newdata, dp=-1L, ...){
+          definition = function (x, newdata, dp, ...){
 
-                         if(dp <= 0L) {
-                           start <- 1L
-                           opt <- OptTx(x)
-                           if( is(opt,"matrix") ) {
-                             finish <- ncol(opt)
-                           } else {
-                             finish <- 1L
-                           }
-                         } else {
-                           start <- as.integer(round(dp,0L))
-                           finish <- as.integer(round(dp,0L))
-                         }
+                         if(missing(dp)) stop("Must provide dp")
 
                          regs <- x@regimes
                          pars <- x@varEst
 
                          optTx <- matrix(NA,
                                          nrow=nrow(newdata),
-                                         ncol=(finish-start+1L),
+                                         ncol=1L,
                                          dimnames=list(NULL, 
-                                                  paste("dp=", start:finish)))
+                                                  paste("dp=", dp)))
 
-                         icol <- 0L
-                         for(i in start:finish){
-                           if( is(regs, 'RegimeList') ) {
-                             rr <- RegFunc(regs[[i]])
-                             pp <- pars[[i]]
-                             tx <- TxName(x@txInfo[[i]])
-                           } else if( is(regs, 'Regime') ) {
-                             rr <- RegFunc(regs)
-                             pp <- pars[[i]]
-                             tx <- TxName(x@txInfo)
-                           } else {
-                             DeveloperError("bad regime class", "OptTx")
-                           }
-
-                           argList <- list()
-                           nms <- names(formals(rr))
-                           np <- length(nms)
-                           parNames <- nms[1L:{np-1L}]
-                           dataName <- nms[np]
-                           for(j in 1L:length(pp)) {
-                             argList[[ parNames[j] ]] <- pp[j]
-                           }
-
-                           argList[[dataName]] <- newdata
-                           reg.g <- do.call(what = rr, args = argList)
-
-                           icol <- icol + 1L
-                           optTx[,icol] <- reg.g
-
-                           nms <- names(newdata)
-                           newdata <- cbind(newdata, reg.g)
-                           colnames(newdata) <- c(nms, tx)
+                         if( is(regs, 'RegimeList') ) {
+                           rr <- RegFunc(regs[[dp]])
+                           pp <- pars[[dp]]
+                           tx <- TxName(x@txInfo[[dp]])
+                         } else if( is(regs, 'Regime') ) {
+                           rr <- RegFunc(regs)
+                           pp <- pars[[1L]]
+                           tx <- TxName(x@txInfo)
+                         } else {
+                           DeveloperError("bad regime class", "OptTx")
                          }
+
+                         argList <- list()
+                         nms <- names(formals(rr))
+                         np <- length(nms)
+                         parNames <- nms[1L:{np-1L}]
+                         dataName <- nms[np]
+                         for(j in 1L:length(pp)) {
+                           argList[[ parNames[j] ]] <- pp[j]
+                         }
+
+                         argList[[dataName]] <- newdata
+                         reg.g <- do.call(what = rr, args = argList)
+
+                         optTx[,1L] <- reg.g
 
                          return( optTx )
                        } )
