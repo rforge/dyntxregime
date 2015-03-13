@@ -1,16 +1,12 @@
 \name{optimalSeq}
 \alias{optimalSeq}
 \title{
-Regression Based Robust Estimation of Optimal Dynamic Treatment Regimes
+Regression Based Value-Search Estimation of Optimal Dynamic Treatment Regimes
 }
 \description{
-A regression based alternative to Q- and A- learning. A doubly robust Augmented
-Inverse Probability Weighted Estimator (AIPWE) 
-or Inverse Probability Weighted Estimator (IPWE) for population mean outcome
-is optimized over a restricted class of regimes. Methods
-are available for both single decision point and sequential decision
-point regimes. This method requires the rgenoud package. 
+A regression based value-search alternative to Q- and A- learning. A doubly robust Augmented Inverse Probability Weighted Estimator (AIPWE) or Inverse Probability Weighted Estimator (IPWE) for population mean outcome is optimized over a restricted class of regimes. Methods are available for both single-decision-point and multiple-decision-point regimes. This method requires the rgenoud package. 
 }
+
 \usage{
 optimalSeq(..., moPropen, moMain, moCont, data, response, txName, regimes,
  fSet = NULL, refit = FALSE, iter = 0, suppress = FALSE)
@@ -56,8 +52,7 @@ moPropen@predict.args <- list("type"="response",
                   and no value is provided in propenMissing, it is
                   assumed that the smallest valued treatment option is missing.}
 
- \item{moMain   }{a single object of class modelObj or NULL
-                  or a list of objects of 
+ \item{moMain   }{a single object of class modelObj or a list of objects of 
                   class modelObj or {modelObjSubset}.
                   This object defines the models and R
                   methods to be used to obtain parameter estimates and
@@ -67,8 +62,7 @@ moPropen@predict.args <- list("type"="response",
                   the prediction on the scale of the response variable.
                   See ?modelObj and/or ?modelObjSubset for details.}
 
- \item{moCont   }{a single object of class modelObj or NULL 
-                  or a list of objects of 
+ \item{moCont   }{a single object of class modelObj or a list of objects of 
                   class modelObj or {modelObjSubset}.
                   This object defines the models and R
                   methods to be used to obtain parameter estimates and

@@ -62,7 +62,8 @@ iqLearnFSV <- function(object,
                        moMain = NULL, 
                        moCont = NULL, 
                        data = NULL, 
-                       iter = 0L){
+                       iter = 0L,
+                       suppress = FALSE){
 
   #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
   #++++++                         Verify Input                         ++++++#
@@ -173,7 +174,7 @@ iqLearnFSV <- function(object,
                             iter = iter)
   }
 
-  show(result)
+  if( !suppress ) show(result)
   return(result)
 }
 

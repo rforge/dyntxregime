@@ -113,6 +113,10 @@ optimalSeq <- function(...,
                        iter = 0L,
                        suppress = FALSE){
 
+  if( !requireNamespace("rgenoud", quietly=TRUE) ) {
+    stop("optimalSeq requires the rgenoud package available on CRAN.")
+  }
+
   #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
   #++++++                         Verify Input                         ++++++#
   #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
@@ -397,7 +401,7 @@ optimalSeq <- function(...,
   #--------------------------------------------------------------------------#
   # Initiate genetic algorithm                                               #
   #--------------------------------------------------------------------------#
-  gaEst <- do.call(genoud, argList)
+  gaEst <- do.call(rgenoud::genoud, argList)
 
   leta <- as.list(gaEst$par)
   j <- length(leta)

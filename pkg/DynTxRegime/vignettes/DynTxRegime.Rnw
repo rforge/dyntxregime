@@ -61,6 +61,8 @@ A goal of personalized medicine is to use the unique characteristics of individu
 
 \noindent {\em Keywords:} Interactive Q-learning; Q-learning; Dynamic Treatment Regimes; Dynamic Programming; doubly robust; augmented inverse probability weighted estimator; inverse probability weighted estimator.
 
+%\VignetteIndexEntry{Using DynTxRegime}
+
 \section{Introduction}
 \label{section:Introduction}
 In practice, clinicians and intervention scientists must adapt treatment recommendations in response to the evolving health status of each patient.  A dynamic treatment regime (DTR) formalizes the treatment process as a sequence of decision rules that map patient information to a recommended treatment.  For a prespecified outcome,
@@ -234,11 +236,17 @@ that is, a patient's observed covariates and outcome are the same as the potenti
 Both $Q$-learning and Interactive $Q$-learning are outcome regression methods. The methods employ dynamic programming, also referred to as backward induction, to estimate $g^{opt}$. One begins at the $K$th decision point and defines
 \begin{eqnarray}
 \label{equation:KQFunction}
-Q_{K}(\barx{K}, \bara{K}) &=& \mathbb{E}(Y \given{K}), \nonumber \\
-g_{K}^{opt}(\barx{K}, \bara{K}) &=& \arg \max_{ a_{K} \in \fset{K} } Q_{K}(\barX{K}, \barA{K-1}, a_{K}), \nonumber \\
-V_{K}(\barX{K}, \barA{K-1}) &=& \max_{ a_{K} \in \fset{K} } Q_{K}(\barX{K}, \barA{K-1}, a_{K}). \nonumber
+Q_{K}(\barx{K}, \bara{K}) &=& \mathbb{E}(Y \given{K}), \nonumber
+\end{eqnarray}
+Thus, the optimal treatment at the $K^{th}$ stage is
+\begin{eqnarray{
+g_{K}^{opt}(\barx{K}, \bara{K}) &=& \arg \max_{ a_{K} \in \fset{K} } Q_{K}(\barX{K}, \barA{K-1}, a_{K}), \nonumber
 \end{eqnarray}
 Thus, $g^{opt}_K$ yields the treatment option at decision $K$ that maximizes the potential outcome given prior covariate and treatment history.
+We further define
+\begin{eqnarray}
+V_{K}(\barX{K}, \barA{K-1}) &=& \max_{ a_{K} \in \fset{K} } Q_{K}(\barX{K}, \barA{K-1}, a_{K}). \nonumber
+\end{eqnarray}
 
 For $k = K-1, \dots, 1$, define
 \begin{eqnarray}
@@ -247,18 +255,22 @@ Q_{k}(\barx{k}, \bara{k}) &=& \mathbb{E}\{ V_{k+1}( \barX{k}, X_{k+1}, \barA{k} 
 g_{k}^{opt}(\barx{k}, \bara{k}) &=& \arg \max_{ a_{k} \in \fset{k} } Q_{k}(\barX{k}, \barA{k-1}, a_{k}),  \nonumber \\
 V_{k}(\barx{k}, \bara{k-1}) &=& \max_{ a_{k} \in \fset{k} } Q_{k}(\barX{k},\barA{k-1},a_{k}). \nonumber 
 \end{eqnarray}
-At decisions $k = K-1, \dots, 1$, $g^{opt}_k$ dictates the option that maximizes the potential outcome if the optimal rules were followed in the future. 
+And, 
+\begin{eqnarray}
+g_{k}^{opt}(\barx{k}, \bara{k}) &=& \arg \max_{ a_{k} \in \fset{k} } Q_{k}(\barX{k}, \barA{k-1}, a_{k}),  \nonumber
+\end{eqnarray}
+which dictates the option that maximizes the potential outcome if the optimal rules were followed in the future. 
 
 The $Q_{k}(\barx{k}, \bara{k})$ are referred to as the ``Q-functions," viewed as measuring the ``quality" associated with using treatment $a_{k}$ at decision $k$ given the history up to that decision and then following the optimal regime thereafter. The ``value functions,"  $V_{k}(\barx{k}, \bara{k-1})$, reflect the ``value" of a patient's history assuming that optimal decisions are made in the future.
 
 \subsection{Q-learning}
 \label{subsection:QLearning}
 
-$Q$-learning approximates the $Q$-functions with linear or non-linear regression models $Q_{k}(\barx{k}, \bara{k}; \beta)$. In the \pkg{DynTxRegime} implementation, the regression models are defined in terms of the main effect of treatment and the interactions between treatment $a_{k}$ and $\{\barx{k}, \bara{k-1}\}$, the covariate and treatment history:
+$Q$-learning approximates the $Q$-functions with linear or non-linear regression models $Q_{k}(\barx{k}, \bara{k}; \beta)$. In the \pkg{DynTxRegime} implementation, the regression models are defined in terms of the main effects of treatment and the interactions between treatment $a_{k}$ and $\{\barx{k}, \bara{k-1}\}$, the covariate and treatment history:
 \begin{displaymath}
 Q_{k}(\barx{k}, \bara{k-1}, a_{k}; \beta_{k}) = \mom{k}(\barx{k}, \bara{k-1};\gamma_{k}) + a_{k}~\moc{k}(\bar{x}_k, \bar{a}_{k-1};\eta_{k}), ~~  k=1, \dots, K,
 \end{displaymath}
-where $\mom{k}(\bar{x}_k, \bar{a}_{k-1}; \gamma_k)$ models the main effect of treatment, $\moc{k}(\bar{x}_k, \bar{a}_{k-1}; \eta_k)$ models the contrast functions, and $\beta_{k} = (\gamma_{k}^{\top}, \eta_{k}^{\top})^{\top}$. The $Q$-learning algorithm is given below.
+where $\mom{k}(\bar{x}_k, \bar{a}_{k-1}; \gamma_k)$ models the main effects of treatment, $\moc{k}(\bar{x}_k, \bar{a}_{k-1}; \eta_k)$ models the contrast functions, and $\beta_{k} = (\gamma_{k}^{\top}, \eta_{k}^{\top})^{\top}$. The $Q$-learning algorithm is given below.
 
 \vspace{5mm}
 
@@ -300,12 +312,12 @@ where $\mom{k}(\bar{x}_k, \bar{a}_{k-1}; \gamma_k)$ models the main effect of tr
 \label{subsubsection:TheQLearnFunction}
 Function \function{qLearn} implements a single step of the $Q$-learning algorithm and is called for each step of the analysis. 
 \begin{verbatim}
-qLearn(..., moMain, moCont, data, response, txName, fSet = NULL, iter = 0L)
+qLearn(..., moMain, moCont, data, response, txName, fSet = NULL, iter = 0L, suppress = FALSE)
 \end{verbatim}
 Complete input argument names are required, the meaning of which follow.
 \begin{itemize}
 	
-\item{\argument{moMain}: }{an object of class \class{modelObj} created by \function{buildModelObj} of \pkg{modelObj}. This object defines the regression analysis for the main effect term of the $Q$-function, $\mom{k}(\barx{k}, \bara{k-1}; \gamma_k)$. When defining the modeling object, the prediction method must return predictions on the scale of the response.}
+\item{\argument{moMain}: }{an object of class \class{modelObj} created by \function{buildModelObj} of \pkg{modelObj}. This object defines the regression analysis for the main effects term of the $Q$-function, $\mom{k}(\barx{k}, \bara{k-1}; \gamma_k)$. When defining the modeling object, the prediction method must return predictions on the scale of the response.}
 
 \item{\argument{moCont}: }{an object of class \class{modelObj} created by \function{buildModelObj} of \pkg{modelObj}. This object defines the regression analysis for the 
 contrast functions of the $Q$-function, $\moc{k}(\barx{k}, \bara{k-1}; \eta_k)$. When defining the modeling object, the prediction method must return predictions on the scale of the response.}
@@ -318,7 +330,7 @@ contrast functions of the $Q$-function, $\moc{k}(\barx{k}, \bara{k-1}; \eta_k)$.
 
 \item{\argument{fSet}: }{an object of class \class{function}. A user defined function specifying the rules for determining the feasible treatment options, $\fset{k}$, for an individual based on their covariate and treatment history. This argument will be discussed in detail in Subsection \ref{subsubsection:FeasibleSet}.}
 
-\item{\argument{iter}: }{an object of class \class{integer}. If \argument{iter} $ = 0$, the regression analyses for the main effect and contrast functions will be combined into a single regression step, i.e., the models specified in input arguments \argument{moMain} and \argument{moCont} will
+\item{\argument{iter}: }{an object of class \class{integer}. If \argument{iter} $ = 0$, the regression analyses for the main effects and contrast functions will be combined into a single regression step, i.e., the models specified in input arguments \argument{moMain} and \argument{moCont} will
 be combined into a single model for $Q_{k}(\barx{k},\bara{k}; \beta_{k})$, and parameter estimates will be obtained simultaneously. By default, the parameter estimates will be obtained using the regression tools specified in \argument{moMain}. If \argument{moMain} = NULL, the methods specified in \argument{moCont} will be used. If \argument{iter} $ \ge 1$, the \argument{moMain} and \argument{moCont} regression analyses will be performed separately using an iterative algorithm. The iterative algorithm is as follows: 
 \begin{eqnarray}
 (1) && Y = Y_{main} + Y_{cont} \nonumber \\
@@ -331,6 +343,8 @@ be combined into a single model for $Q_{k}(\barx{k},\bara{k}; \beta_{k})$, and p
     && \mathrm{until~convergence~or~a~maximum~number~of~iterations.} \nonumber
 \end{eqnarray}
 \argument{iter} is the maximum number of iterations to be used to attain convergence.}
+
+\item{\argument{suppress}: }{an object of class \class{logical} indicating if the final screen prints are to suppressed. }
 
 \end{itemize}
 
@@ -501,8 +515,11 @@ head(qFuncsQ1)
 @
 
 To recommend a $k^{th}$-stage optimal treatment for a new patient, both the $k^{th}$-stage \class{DynTxRegime} object and a \class{data.frame} of new patient covariates are passed to \function{optTx}. Consider a new patient with the following baseline covariate information:
-<<>>=
-newpatient <- data.frame("gender" = 1, "race" = 1, "parentBMI" = 40, "baselineBMI" = 35)
+<<newPatientS1>>=
+newpatient <- data.frame("gender" = 1, 
+                         "race" = 1, 
+                         "parentBMI" = 40, 
+                         "baselineBMI" = 35)
 @
 The recommended first-stage optimal treatment based on our $Q$-learning analysis is:
 <<>>=
@@ -512,7 +529,7 @@ optQ1
 As shown for the training set, a list is returned, which includes \$qFunctions, a matrix of the first-stage $Q$-functions for each treatment option, and the recommended first-stage treatment for the new patient, \$optimalTx. 
 
 Assume that our new patient is given the recommended first-stage treatment, and at month 4, the patient's BMI is measured to be 25.
-<<>>=
+<<newPatientS2>>=
 newpatient <- cbind(newpatient, "A1" = optQ1$optimalTx, "month4BMI" = 25)
 @
 The recommended second-stage optimal treatment is:
@@ -723,15 +740,19 @@ $C(x_1, a_1) = \mathbb{E}\left\{ \moc{2}(\barX{2}, A_{1}) \mid X_{1}=x_1, A_1 = 
 
 There are four IQ-learning functions in the \pkg{DynTxRegime} package. The structures of the calls are very similar and are presented in combination below.
 \begin{verbatim}
-iqLearnSS(..., moMain, moCont, data, response, txName, iter = 0L)
-iqLearnFSM(..., moMain, moCont, data, response, txName, iter = 0L)
-iqLearnFSC(..., moMain, moCont, data, response, txName, iter = 0L)
-iqLearnFSV(object, ..., moMain=NULL, moCont=NULL, data=NULL, iter=0L)
+iqLearnSS(..., moMain, moCont, data, response, txName, 
+          iter = 0L, suppress = FALSE)
+iqLearnFSM(..., moMain, moCont, data, response, txName,  
+          iter = 0L, suppress = FALSE)
+iqLearnFSC(..., moMain, moCont, data, response, txName,  
+          iter = 0L, suppress = FALSE)
+iqLearnFSV(object, ..., moMain=NULL, moCont=NULL, data=NULL,  
+          iter = 0L, suppress = FALSE)
 \end{verbatim}
 Complete input argument names are required, the meaning of which follow.
 \begin{itemize}
 
-\item{\argument{moMain}: }{an object of class \class{modelObj} created by \function{buildModelObj} of \pkg{modelObj}. This object defines the regression analysis for the main effect term of the $Q$-function, $\mom{k}(\barx{k}, \bara{k-1}; \gamma_k)$. When defining the modeling object, the prediction method must return predictions on the scale of the response.}
+\item{\argument{moMain}: }{an object of class \class{modelObj} created by \function{buildModelObj} of \pkg{modelObj}. This object defines the regression analysis for the main effects term of the $Q$-function, $\mom{k}(\barx{k}, \bara{k-1}; \gamma_k)$. When defining the modeling object, the prediction method must return predictions on the scale of the response.}
 
 \item{\argument{moCont}: }{an object of class \class{modelObj} created by \function{buildModelObj} of \pkg{modelObj}. This object defines the regression analysis for the 
 	contrast functions of the $Q$-function, $\moc{k}(\barx{k}, \bara{k-1}; \eta_k)$. When defining the modeling object, the prediction method must return predictions on the scale of the response.}
@@ -744,7 +765,7 @@ Complete input argument names are required, the meaning of which follow.
 
 \item{\argument{txName}: }{an object of class \class{character} specifying the column header of \argument{data} that corresponds to the treatment variable for the stage under analysis.}
 
-\item{\argument{iter}: }{an object of class \class{integer}. If \argument{iter} $ = 0$, the regression analyses for the main effect and contrast functions will be combined into a single regression step, i.e., the models specified in input arguments \argument{moMain} and \argument{moCont} will
+\item{\argument{iter}: }{an object of class \class{integer}. If \argument{iter} $ = 0$, the regression analyses for the main effects and contrast functions will be combined into a single regression step, i.e., the models specified in input arguments \argument{moMain} and \argument{moCont} will
 	be combined into a single model for $Q_{k}(\barx{k},\bara{k}; \beta_{k})$, and parameter estimates will be obtained simultaneously. By default, the parameter estimates will be obtained using the regression tools specified in \argument{moMain}. If \argument{moMain} = NULL, the methods specified in \argument{moCont} will be used. If \argument{iter} $ \ge 1$, the \argument{moMain} and \argument{moCont} regression analyses will be performed separately using an iterative algorithm. The iterative algorithm is as follows: 
 	\begin{eqnarray}
 		(1) && Y = Y_{main} + Y_{cont} \nonumber \\
@@ -757,6 +778,8 @@ Complete input argument names are required, the meaning of which follow.
 		&& \mathrm{until~convergence~or~a~maximum~number~of~iterations.} \nonumber
 	\end{eqnarray}
 	\argument{iter} is the maximum number of iterations to be used to attain convergence.}
+\item{\argument{suppress}: }{an object of class \class{logical}. If TRUE,
+final screen prints will be suppressed.}
 
 \end{itemize}
 
@@ -791,9 +814,9 @@ An object that inherits from class \class{DynTxRegime} is returned.
 is(fitIQ2,'DynTxRegime')
 @
 
-\paragraph{Regression of second-stage main effect (Step IQ2)}
+\paragraph{Regression of second-stage main effects (Step IQ2)}
 
-The next step in the $IQ$-learning algorithm is to model the conditional expectation of the main effect term given the first-stage covariates and treatment.  We will accomplish this by regressing $\left\{\mom{2}(\barX{2,i}, A_{1,i};\widehat{\gamma}_{2})\right\}_{i=1}^{n}$ on a linear function of $\{(X_{1,i}, A_{1,i})\}_{i=1}^{n}$ using the function \function{iqLearnFSM}. If desired, the estimated main effect of the second-stage, $\left\{\mom{2}(\barX{2,i}, A_{1,i};\widehat{\gamma}_{2})\right\}_{i=1}^{n}$, can be retrieved by \function{fittedMain}; though, this is not necessary for the algorithm. 
+The next step in the $IQ$-learning algorithm is to model the conditional expectation of the main effects term given the first-stage covariates and treatment.  We will accomplish this by regressing $\left\{\mom{2}(\barX{2,i}, A_{1,i};\widehat{\gamma}_{2})\right\}_{i=1}^{n}$ on a linear function of $\{(X_{1,i}, A_{1,i})\}_{i=1}^{n}$ using the function \function{iqLearnFSM}. If desired, the estimated main effects of the second-stage, $\left\{\mom{2}(\barX{2,i}, A_{1,i};\widehat{\gamma}_{2})\right\}_{i=1}^{n}$, can be retrieved by \function{fittedMain}; though, this is not necessary for the algorithm. 
 <<>>=
 head(fittedMain(fitIQ2))
 @
@@ -1011,14 +1034,15 @@ Both the IPWE and AIPWE estimators are non-smooth functions in $\nu$; accordingl
 \subsubsection{The optimalSeq function}
 Function \function{optimalSeq} implements the value search method from a missing data perspective as developed by \citet{Zhang1DP:12}. 
 \begin{verbatim}
-optimalSeq(..., moPropen, moMain, moCont, data, response, txName, regimes, fSet = NULL, refit = FALSE, iter = 0L)
+optimalSeq(..., moPropen, moMain, moCont, data, response, txName, regimes, 
+                fSet = NULL, refit = FALSE, iter = 0L, suppress = FALSE)
 \end{verbatim}
 Complete input argument names are required, the meaning of which follow.
 \begin{itemize}
 
 \item{\argument{moPropen}: }{an object of class \class{modelObj} created by  \function{buildModelObj} of \pkg{modelObj}. This object defines the regression analysis for the propensity for treatment, $\pi(A, X; \gamma)$. When defining the modeling object, the prediction method must return predictions on the scale of the response.}
 
-\item{\argument{moMain}: }{an object of class \class{modelObj} created by \function{buildModelObj} of \pkg{modelObj}. This object defines the regression analysis for the main effect term of the outcome, $\mu(X; \gamma)$. When defining the modeling object, the prediction method must return predictions on the scale of the response.}
+\item{\argument{moMain}: }{an object of class \class{modelObj} created by \function{buildModelObj} of \pkg{modelObj}. This object defines the regression analysis for the main effects term of the outcome, $\mu(X; \gamma)$. When defining the modeling object, the prediction method must return predictions on the scale of the response.}
 
 \item{\argument{moCont}: }{an object of class \class{modelObj} created by \function{buildModelObj} of \pkg{modelObj}. This object defines the regression analysis for the 
 	contrasts of the outcome, $\mathcal{C}(X; \eta)$. When defining the modeling object, the prediction method must return predictions on the scale of the response.}
@@ -1035,7 +1059,7 @@ Complete input argument names are required, the meaning of which follow.
 
 \item{\argument{refit}: }{ignored in single-decision-point analyses.}
 
-\item{\argument{iter}: }{an object of class \class{integer}. If \argument{iter} $ = 0$, the regression analyses for the main effect and contrast functions will be combined into a single regression step, i.e., the models specified in input arguments \argument{moMain} and \argument{moCont} will
+\item{\argument{iter}: }{an object of class \class{integer}. If \argument{iter} $ = 0$, the regression analyses for the main effects and contrast functions will be combined into a single regression step, i.e., the models specified in input arguments \argument{moMain} and \argument{moCont} will
 	be combined into a single model, and parameter estimates will be obtained simultaneously. By default, the parameter estimates will be obtained using the regression tools specified in \argument{moMain}. If \argument{moMain} = NULL, the methods specified in \argument{moCont} will be used. If \argument{iter} $ \ge 1$, the \argument{moMain} and \argument{moCont} regression analyses will be performed separately using an iterative algorithm. The iterative algorithm is as follows: 
 	\begin{eqnarray}
 		(1) && Y = Y_{main} + Y_{cont} \nonumber \\
@@ -1048,6 +1072,8 @@ Complete input argument names are required, the meaning of which follow.
 		&& \mathrm{until~convergence~or~a~maximum~number~of~iterations.} \nonumber
 	\end{eqnarray}
 	\argument{iter} is the maximum number of iterations to be used to attain convergence.}
+
+\item{\argument{suppress}: }{an object of class \class{logical} indicating if the final screen prints are to suppressed. }
 
 \item{\argument{\dots}}{Additional arguments to be passed to \function{genoud}.}
 \end{itemize}
@@ -1076,7 +1102,7 @@ moPropen <- buildModelObj(model = ~1,
 @
 Note that the default scale of the prediction for \function{predict.glm} is on the scale of the linear predictors, not the response argument. Thus, argument \argument{type} must be changed from its default setting.
 
-Next, we specify the model objects for the outcome regression, $m(A, X;\beta)$. As for $Q$-learning and $IQ$-learning, the model is specified as two components, one for the main effect of treatment, \argument{moMain}, and a second for the contrast functions, \argument{moCont}.
+Next, we specify the model objects for the outcome regression, $m(A, X;\beta)$. As for $Q$-learning and $IQ$-learning, the model is specified as two components, one for the main effects of treatment, \argument{moMain}, and a second for the contrast functions, \argument{moCont}.
 <<>>=
 <<SSModels>>
 @
@@ -1260,14 +1286,15 @@ The algorithm for the doubly robust classification method is as follows:
 \subsubsection{The optimalClass function}
 Function \function{optimalClass} implements the single-decision-point classification method of \citet{ZhangClass:12}. It is appropriate for single-decision-point analyses with binary treatments coded as $\{0 , 1\}$.
 \begin{verbatim}
-optimalClass(..., moPropen, moMain, moCont, moClass, data, response, txName, iter = 0L)
+optimalClass(..., moPropen, moMain, moCont, moClass, data, response, txName, 
+             iter = 0L, suppress = FALSE)
 \end{verbatim}
 Complete input argument names are required, the meaning of which follow.
 \begin{itemize}
 
 \item{\argument{moPropen}: }{an object of class \class{modelObj} created by  \function{buildModelObj} of \pkg{modelObj}. This object defines the regression analysis for the propensity for treatment, $\pi(A, X; \gamma)$. When defining the modeling object, the prediction method must return predictions on the scale of the response.}
 
-\item{\argument{moMain}: }{an object of class \class{modelObj} created by \function{buildModelObj} of \pkg{modelObj}. This object defines the regression analysis for the main effect term of the outcome, $\mu(X; \gamma)$. When defining the modeling object, the prediction method must return predictions on the scale of the response.}
+\item{\argument{moMain}: }{an object of class \class{modelObj} created by \function{buildModelObj} of \pkg{modelObj}. This object defines the regression analysis for the main effects term of the outcome, $\mu(X; \gamma)$. When defining the modeling object, the prediction method must return predictions on the scale of the response.}
 
 \item{\argument{moCont}: }{an object of class \class{modelObj} created by \function{buildModelObj} of \pkg{modelObj}. This object defines the regression analysis for the 
 	contrasts of the outcome, $\mathcal{C}(X; \eta)$. When defining the modeling object, the prediction method must return predictions on the scale of the response.}
@@ -1280,7 +1307,7 @@ Complete input argument names are required, the meaning of which follow.
 
 \item{\argument{txName}: }{an object of class \class{character} specifying the column header of \argument{data} that corresponds to the treatment variable.}
 
-\item{\argument{iter}: }{an object of class \class{integer}. If \argument{iter} $ = 0$, the regression analyses for the main effect and contrast functions will be combined into a single regression step, i.e., the models specified in input arguments \argument{moMain} and \argument{moCont} will
+\item{\argument{iter}: }{an object of class \class{integer}. If \argument{iter} $ = 0$, the regression analyses for the main effects and contrast functions will be combined into a single regression step, i.e., the models specified in input arguments \argument{moMain} and \argument{moCont} will
 	be combined into a single model, and parameter estimates will be obtained simultaneously. By default, the parameter estimates will be obtained using the regression tools specified in \argument{moMain}. If \argument{moMain} = NULL, the methods specified in \argument{moCont} will be used. If \argument{iter} $ \ge 1$, the \argument{moMain} and \argument{moCont} regression analyses will be performed separately using an iterative algorithm. The iterative algorithm is as follows: 
 	\begin{eqnarray}
 		(1) && Y = Y_{main} + Y_{cont} \nonumber \\
@@ -1293,6 +1320,8 @@ Complete input argument names are required, the meaning of which follow.
 		&& \mathrm{until~convergence~or~a~maximum~number~of~iterations.} \nonumber
 	\end{eqnarray}
 	\argument{iter} is the maximum number of iterations to be used to attain convergence.}
+
+\item{\argument{suppress}: }{an object of class \class{logical} indicating if the final screen prints are to suppressed. }
 
 \end{itemize}
 
@@ -1317,7 +1346,7 @@ moPropen <- buildModelObj(model = ~1,
 
 As before, the default scale of the prediction for \function{predict.glm} is on the scale of the linear predictors, not the response argument. Thus, argument \argument{type} must be changed from its default setting.
 
-Next, we specify the model objects for the outcome regression, $m(A, X;\beta)$. The model is specified as two components, one for the main effect of treatment, \argument{moMain}, and a second for the contrasts among treatments, \argument{moCont}.
+Next, we specify the model objects for the outcome regression, $m(A, X;\beta)$. The model is specified as two components, one for the main effects of treatment, \argument{moMain}, and a second for the contrasts among treatments, \argument{moCont}.
 <<>>=
 <<SSModels>>
 @
@@ -1505,14 +1534,14 @@ Notice that the model $m(\bar{X}, g(\barX{k},\nu); \beta)$ must be refit for eac
 For multiple decision points, the call to \function{optimalSeq} is very similar to that of the single-decision-point analysis. The primary difference between the calls is the use of lists rather than single objects.
 \begin{verbatim}
 optimalSeq(..., moPropen, moMain, moCont, data, response, txName, regimes,
-           fSet = NULL, refit = FALSE, iter = 0L)
+           fSet = NULL, refit = FALSE, iter = 0L, suppress = FALSE)
 \end{verbatim}
 Complete input argument names are required, the meaning of which follow.
 \begin{itemize}
 	
 	\item{\argument{moPropen}: }{a list of objects of class \class{modelObj} created by  \function{buildModelObj} of \pkg{modelObj}. The object in the $k^{th}$ element of \argument{moPropen} defines the regression step for the $k^{th}$ propensity for treatment, $\pi_k(A, X; \gamma)$. When defining the modeling object, the prediction method must return predictions on the scale of the response.}
 	
-	\item{\argument{moMain}: }{a list of objects of class \class{modelObj} created by \function{buildModelObj} of \pkg{modelObj}. The object in the $k^{th}$ element of \argument{moMain} defines the regression step for the main effect component of the $k^{th}$  outcome regression model, $\mu_k(\barX{k}, \barA{k-1}; \gamma_k)$. When defining the modeling object, the prediction method must return predictions on the scale of the response.}
+	\item{\argument{moMain}: }{a list of objects of class \class{modelObj} created by \function{buildModelObj} of \pkg{modelObj}. The object in the $k^{th}$ element of \argument{moMain} defines the regression step for the main effects component of the $k^{th}$  outcome regression model, $\mu_k(\barX{k}, \barA{k-1}; \gamma_k)$. When defining the modeling object, the prediction method must return predictions on the scale of the response.}
 	
 	\item{\argument{moCont}: }{a list of objects of class \class{modelObj} created by \function{buildModelObj} of \pkg{modelObj}. The object in the $k^{th}$ element of \argument{moCont} defines the regression step for the contrasts component of the $k^{th}$ outcome regression model, $\mathcal{C}_k(\barX{k}, \barA{k-1}; \eta_k)$. When defining the modeling object, the prediction method must return predictions on the scale of the response.}
 	
@@ -1528,7 +1557,7 @@ Complete input argument names are required, the meaning of which follow.
 	
 	\item{\argument{refit}: }{an object of class \class{logical}. If \argument{refit}=TRUE, the outcome regression model, $m(A, X;\beta)$ is refit at each iteration of the treatment regime optimization algorithm. If \argument{refit}=FALSE, $Q$-learning is used.}
 	
-	\item{\argument{iter}: }{an object of class \class{integer}. If \argument{iter} $ = 0$, the regression analyses for the main effect and contrast functions will be combined into a single regression step, i.e., the models specified in input arguments \argument{moMain} and \argument{moCont} will
+	\item{\argument{iter}: }{an object of class \class{integer}. If \argument{iter} $ = 0$, the regression analyses for the main effects and contrast functions will be combined into a single regression step, i.e., the models specified in input arguments \argument{moMain} and \argument{moCont} will
 		be combined into a single model, and parameter estimates will be obtained simultaneously. By default, the parameter estimates will be obtained using the regression tools specified in \argument{moMain}. If \argument{moMain} = NULL, the methods specified in \argument{moCont} will be used. If \argument{iter} $ \ge 1$, the \argument{moMain} and \argument{moCont} regression analyses will be performed separately using an iterative algorithm. The iterative algorithm is as follows: 
 		\begin{eqnarray}
 			(1) && Y = Y_{main} + Y_{cont} \nonumber \\
@@ -1541,6 +1570,8 @@ Complete input argument names are required, the meaning of which follow.
 			&& \mathrm{until~convergence~or~a~maximum~number~of~iterations.} \nonumber
 		\end{eqnarray}
 		\argument{iter} is the maximum number of iterations to be used to attain convergence.}
+
+\item{\argument{suppress}: }{an object of class \class{logical} indicating if the final screen prints are to suppressed. }
 	
 	\item{\argument{\dots}}{Additional arguments to be passed to \function{genoud}.}
 	
@@ -1567,7 +1598,7 @@ moPropen[[2]] <- buildModelObj(model = ~1,
 @
 Note that the default scale of the prediction for \function{predict.glm} is on the scale of the linear predictors, not the response argument. Thus, variable \argument{type} must be changed from its default setting.
 
-Next, we specify the model objects for the outcome regression, $m_k(\barA{k}, \barX{k};\beta_k)$. The model is specified as two components, one for the main effect of treatment, \argument{moMain}, and a second for the contrasts among treatments, \argument{moCont}.
+Next, we specify the model objects for the outcome regression, $m_k(\barA{k}, \barX{k};\beta_k)$. The model is specified as two components, one for the main effects of treatment, \argument{moMain}, and a second for the contrasts among treatments, \argument{moCont}.
 <<>>=
 #
 #Models for first-stage regression
@@ -1661,7 +1692,10 @@ data$R <- rbinom(nrow(data),1,0.5)
 data$A2[data$R==0] <- 1L - data$A1[data$R==0]
 @
 
-To create the dataset, we randomly generated a binary response argument with equal probability. For patients with $R=0$, the second-stage treatment was set to $1-A_1$. \argument{fSet} describes the second-stage of our clinical trial design:
+To create the dataset, we randomly generated a binary response argument with equal probability. For patients with $R=0$, the second-stage treatment was set to $1-A_1$. All patients have the same subset of treatments available to them. However,
+because we were
+defining a unique model for subsets of the data, \argument{fSet} is
+used to define the subsets.
 <<>>=
 fSet <- list()
 fSet[[1]] <- function(data){
@@ -1669,7 +1703,7 @@ fSet[[1]] <- function(data){
                if( data$baselineBMI >= 37 )return(list("g2", c(0,1) ) )
              }
 fSet[[2]] <- function(data){
-               if( data$R == 0L ) return(list("g3", c(1L-data$A1) ) )
+               if( data$R == 0L ) return(list("g3", c(0,1) ) )
                if( data$R == 1L ) return(list("g4", c(0,1) ) )
              }
 @
@@ -1753,24 +1787,25 @@ moPropen[[3]] <- buildModelObjSubset(model = ~1,
                                      predict.args = list(type='probs'))
 @
 
-Our regime rules are:
+The regime rules are:
 <<>>=
 regimes <- list()
 regimes[[1]] <- function(a, b, d, data){
                   as.numeric(a + b*data$parentBMI + d*data$baselineBMI > 0 )
                 }
 regimes[[2]] <- function(a, b, d, data){
-                  as.numeric(a + b*data$month4BMI + d*data$A1 > 0 )
+                  if(data$R < 0.5) return(1-data$A1)
+                  return(as.numeric(a + b*data$month4BMI + d*data$A1 > 0 ))
                 }
 @
 
 The function call is the same, with the exception of \argument{fSet}.  Because the calculation and screen print are lengthy, it is not executed within the vignette.
-<<eval=FALSE, echo=TRUE>>=
+<<echo=TRUE>>=
 fitSeq2_FS <- optimalSeq(moPropen = moPropen, 
                          moMain = moMain, moCont = moCont,
                          fSet = fSet,
                          data = data, response = y, txName = c("A1", "A2"), 
-                         regimes = regimes, 
+                         regimes = regimes, suppress = TRUE, 
                          pop.size = psize, starting.values = sv, Domains = Domains)
 @
  

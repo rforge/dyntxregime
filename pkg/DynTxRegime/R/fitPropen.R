@@ -73,12 +73,33 @@ fitPropen <- function(moPropen,
       } 
       predictorArgs(moPropen[[k]]@modelObject) <- predArgs
 
+      if( is(data[,txInfo@txName],"factor") ) {
+
+        tempTx <- data[use4fit,txInfo@txName]
+        tempTx <- levels(tempTx)[tempTx]
+        newLevels <- sort(unique(tempTx))
+        tempTx <- factor(tempTx,levels=newLevels)
+
+        tData <- data[use4fit,,drop=FALSE]
+        tData[,txInfo@txName] <- tempTx
+
+      } else {
+
+        tempTx <- data[use4fit,txInfo@txName]
+        newLevels <- as.character(round(sort(unique(tempTx)),0L))
+
+        tData <- data[use4fit,,drop=FALSE]
+
+      }
+      
+
       fitResult <- Fit(object = moPropen[[k]], 
-                       data = data[use4fit,,drop=FALSE], 
-                       response = data[use4fit,txName])
+                       data = tData, 
+                       response = tData[,txName])
 
       propenFitObj[[k]] <- new("PropenSubsetFit",
                                subset = modelSubset,
+                               levels = newLevels,
                                small = small,
                                modelObjectFit = fitResult)
 

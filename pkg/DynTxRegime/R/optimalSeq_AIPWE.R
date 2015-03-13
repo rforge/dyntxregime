@@ -106,7 +106,7 @@ optimalSeq_AIPWE <- function(eta,
   ind <- matrix(data = 0L,  
                 nrow = nSamples,  
                 ncol = nDP)
-  lambda <- matrix(data = 1.0,  
+  lambda <- matrix(data = 0.0,  
                    nrow = nSamples,  
                    ncol = nDP)
   leta <- as.list(eta)
@@ -129,33 +129,35 @@ optimalSeq_AIPWE <- function(eta,
     # reg.g : tx per regime                                                #
     #----------------------------------------------------------------------#
     if( nDP == 1L ) {
-
       txNm <- TxName(txInfo)
       rgm <- regimes
       txObj <- txInfo
-
     } else {
-
       txNm <- TxName(txInfo[[i]])
       rgm <- regimes[[i]]
       txObj <- txInfo[[i]]
-
     }
 
-    if( is(l.data[,txNm], "factor") ) {
-      tdata <- l.data
-      tdata[,txNm] <- levels(tdata[,txNm])[tdata[,txNm]]
-    } else {
-      tdata <- l.data
-    }
-
+    #----------------------------------------------------------------------#
+    # Number of parameters in regime i                                     #
+    #----------------------------------------------------------------------#
     nPar <- NVars(rgm)
+
+    #----------------------------------------------------------------------#
+    # Create argument list for regime function                             #
+    #----------------------------------------------------------------------#
     argList <- c(leta[(j-nPar+1L):j])
     names(argList) <- VNames(rgm)[1L:nPar]
-    argList[[ VNames(rgm)[-c(1L:nPar)] ]] <- quote(tdata)
+    argList[[ VNames(rgm)[-c(1L:nPar)] ]] <- quote(l.data)
 
+    #----------------------------------------------------------------------#
+    # Calculate treatment regime values at current parameter estimates     #
+    #----------------------------------------------------------------------#
     reg.g <- do.call(what = RegFunc(rgm), args = argList)
 
+    #----------------------------------------------------------------------#
+    # Convert to appropriate class                                         #
+    #----------------------------------------------------------------------#
     if( is(l.data[,txNm], "factor") ) {
       reg.g <- factor(reg.g, levels = levels(l.data[,txNm]))
     } else {
@@ -168,10 +170,10 @@ optimalSeq_AIPWE <- function(eta,
     for( ti in 1L:length(txObj@subsets) ) {
       inss <- txObj@ptsSubset %in% names(txObj@subsets)[ti]
       tst <- reg.g[inss] %in% txObj@subsets[[ti]]
-      if( !all(tst) ) stop("regime returns a value not allowed by fset.")
+      if( !all(tst) ) {
+        stop("regime returns a value not allowed by fset. Verify inputs.")
+      }
     }
-    
-    
 
     #----------------------------------------------------------------------#
     # move j to point to next unused eta value in leta                     #
@@ -212,14 +214,11 @@ optimalSeq_AIPWE <- function(eta,
                                iter = iter, 
                                txInfo = txI)
 
-      subsets <- Subsets(txI)
-      ptsSubset <- PtsSubset(txI)
-
       #------------------------------------------------------------------#
       # Eliminate patients with only 1 tx option from dataset for fit    #
       #------------------------------------------------------------------#
-      useGrps <- sapply(X = subsets, FUN = length) > 1L
-      use4fit <- ptsSubset %in% names(subsets)[which(useGrps)]
+      useGrps <- sapply(X = txI@subsets, FUN = length) > 1L
+      use4fit <- txI@ptsSubset %in% names(txI@subsets)[which(useGrps)]
 
       #------------------------------------------------------------------#
       # For patients with only 1 tx, use response as the value function  #
@@ -259,7 +258,11 @@ optimalSeq_AIPWE <- function(eta,
 
   }
 
+  #--------------------------------------------------------------------------#
+  # For each decision point...                                               #
+  #--------------------------------------------------------------------------#
   for( i in 1L:nDP ){
+
     if( is(txInfo,'TxInfoList') ) {
       txI <- txInfo[[i]]
       proI <- propen[[i]]
@@ -272,26 +275,44 @@ optimalSeq_AIPWE <- function(eta,
                      "optimalSeq_AIPWE")
     }
 
-    sset <- SuperSet(txI)
+    #----------------------------------------------------------------------#
+    # For patients with only one treatment option, do not predict          #
+    #----------------------------------------------------------------------#
+    useGrps <- sapply(X = txI@subsets, FUN = length) > 1.5
+    use4fit <- txI@ptsSubset %in% names(txI@subsets)[which(useGrps)]
 
-    pik <- prob_matrix(fitObj = proI, 
-                       data = l.data, 
-                       txName = TxName(txI),
-                       sset = sset,
-                       msg = FALSE)
+    #----------------------------------------------------------------------#
+    # Calculate propensity for treatment for subset of patients            #
+    #----------------------------------------------------------------------#
+    mm <- PredictPropen(object = proI, 
+                        newdata = l.data[use4fit,,drop=FALSE], 
+                        subset = txI@superSet)
 
-    if( is(l.data[,TxName(txI)],"factor") ) {
-      reg.g <- levels(l.data[,TxName(txI)])[l.data[,TxName(txI)]]
+    #----------------------------------------------------------------------#
+    # Convert assigned treatment to character                              #
+    #----------------------------------------------------------------------#
+    if( is(l.data[,txI@txName],"factor") ) {
+      reg.g <- levels(l.data[,txI@txName])[l.data[,txI@txName]]
+      reg.g <- reg.g[use4fit]
     } else {
-      reg.g <- as.character(l.data[,TxName(txI)])
+      reg.g <- as.character(round(l.data[use4fit,txI@txName],0L))
     }
 
-    for( k in 1L:length(sset) ) {
-      m2 <- (reg.g == sset[k]) & !is.na(reg.g)
-      if( sum(m2, na.rm=TRUE) == 0L ) next
-      lambda[m2,i] <- 1.0 - pik[m2,sset[k]]
-    }
+    #----------------------------------------------------------------------#
+    # Retrieve probability of treatment being assigned treatment           #
+    #----------------------------------------------------------------------#
+    probOfG <- numeric(nrow(l.data))
+    probOfG[use4fit] <- sapply(1L:sum(use4fit), function(x){mm[x,reg.g[x]]})
+
+    #----------------------------------------------------------------------#
+    # For those that have only 1 treatment, probability is 1.              #
+    #----------------------------------------------------------------------#
+    probOfG[!use4fit] <- 1.0
+
+    lambda[,i] <- 1.0 - probOfG
+
   }
+
   #--------------------------------------------------------------------------#
   # doubly robust estimator.                                                 #
   #--------------------------------------------------------------------------#

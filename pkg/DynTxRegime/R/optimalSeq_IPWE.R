@@ -146,25 +146,42 @@ optimalSeq_IPWE <- function(eta,
                      "optimalSeq_AIPWE")
     }
 
-    sset <- SuperSet(txI)
+    #----------------------------------------------------------------------#
+    # For patients with only one treatment option, do not predict          #
+    #----------------------------------------------------------------------#
+    useGrps <- sapply(X = txI@subsets, FUN = length) > 1.5
+    use4fit <- txI@ptsSubset %in% names(txI@subsets)[which(useGrps)]
 
-    pik <- prob_matrix(fitObj = proI, 
-                       data = l.data, 
-                       txName = TxName(txI),
-                       sset = sset,
-                       msg = FALSE)
+    #----------------------------------------------------------------------#
+    # Calculate propensity for treatment for subset of patients            #
+    #----------------------------------------------------------------------#
+    mm <- PredictPropen(object = proI, 
+                        newdata = l.data[use4fit,,drop=FALSE], 
+                        subset = txI@superSet)
 
-    if( is(l.data[,TxName(txI)],"factor") ) {
-      reg.g <- levels(l.data[,TxName(txI)])[l.data[,TxName(txI)]]
+    #----------------------------------------------------------------------#
+    # Convert assigned treatment to character                              #
+    #----------------------------------------------------------------------#
+    if( is(l.data[,txI@txName],"factor") ) {
+      reg.g <- levels(l.data[,txI@txName])[l.data[,txI@txName]]
+      reg.g <- reg.g[use4fit]
     } else {
-      reg.g <- as.character(l.data[,TxName(txI)])
+      reg.g <- as.character(round(l.data[use4fit,txI@txName],0L))
     }
 
-    for( k in 1L:length(sset) ) {
-      m2 <- (reg.g == sset[k]) & !is.na(reg.g)
-      if( sum(m2, na.rm=TRUE) == 0L ) next
-      lambda[m2,i] <- 1.0 - pik[m2,sset[k]]
-    }
+    #----------------------------------------------------------------------#
+    # Retrieve probability of treatment being assigned treatment           #
+    #----------------------------------------------------------------------#
+    probOfG <- numeric(nrow(l.data))
+    probOfG[use4fit] <- sapply(1L:sum(use4fit), function(x){mm[x,reg.g[x]]})
+
+    #----------------------------------------------------------------------#
+    # For those that have only 1 treatment, probability is 1.              #
+    #----------------------------------------------------------------------#
+    probOfG[!use4fit] <- 1.0
+
+    lambda[,i] <- 1.0 - probOfG
+
   }
   #--------------------------------------------------------------------------#
   # doubly robust estimator.                                                 #

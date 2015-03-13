@@ -80,7 +80,8 @@ optimalClass <- function(...,
                          data,
                          response,
                          txName,
-                         iter = 0L){
+                         iter = 0L,
+                         suppress = FALSE){
 
   #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
   #++++++                         Verify Input                         ++++++#
@@ -200,11 +201,9 @@ optimalClass <- function(...,
   #--------------------------------------------------------------------------#
   # Calculate contrast                                                       #
   #--------------------------------------------------------------------------#
-  propenMatrix <- prob_matrix(fitObj = core$propen, 
-                              data = data, 
-                              txName = txName,
-                              sset = superSet,
-                              msg = FALSE)
+  propenMatrix <- PredictPropen(object = core$propen,
+                                newdata = data, 
+                                subset = txInfo@superSet)
 
   if( tolower(method) == "aipwe" ) {
 
@@ -245,7 +244,7 @@ optimalClass <- function(...,
              optTx = classFit$opt,
              call = call)
 
-  show(oc1)
+  if( !suppress ) show(oc1)
 
   return(oc1)
 

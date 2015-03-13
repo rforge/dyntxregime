@@ -5,16 +5,14 @@
 
 \title{ Retrieve Classification Value Object}
 \description{
-Retrieves the value object returned by the classification method.
-This method returns a NULL value for all DynTxRegime objects
-except those returned by optimalClass.
+For the classification based value-search method, this function retrieves the value object returned by the classification method. This method returns a NULL value for all DynTxRegime objects except those returned by optimalClass.
 }
 \section{Methods}{
 \describe{
 
 \item{\code{signature(object = "DynTxRegime")}}{
 Retrieves the value object returned by the classification method.
-The exact value and structure of the returned object is defined by
+The exact value and structure of the returned object is determined by
 the method specified in \code{moClass}.
 
 Because the value object of the modeling function is returned, 

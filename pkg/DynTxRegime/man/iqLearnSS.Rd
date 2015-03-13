@@ -11,7 +11,8 @@ iqLearnSS implements the second-stage regression step of the
 IQ-Learning algorithm (IQ1).
 }
 
-\usage{ iqLearnSS(..., moMain, moCont, data, response, txName, iter=0) }
+\usage{ iqLearnSS(..., moMain, moCont, data, response, txName, 
+                  iter = 0, suppress = FALSE) }
 
 \arguments{
 
@@ -68,6 +69,8 @@ IQ-Learning algorithm (IQ1).
                  \code{moMain} and \code{moCont} must be
                  identical. By default, the choices in moMain are used.}
 
+  \item{suppress }{an object of class \code{logical}. If TRUE, final
+                   screen prints are suppressed.}
 
 }
 

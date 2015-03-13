@@ -13,6 +13,7 @@
 #::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::#
 setClass("PropenSubsetFit",
          slots = c(        subset = "character",
+                           levels = "character",
                             small = "logical",
                    modelObjectFit = "modelObjFit"))
 
@@ -70,23 +71,14 @@ setMethod(f = "Predict",
 setMethod(f = "PredictPropen", 
           signature = c(object = "PropenSubsetFit",
                         newdata = "data.frame"),
-          definition = function(object, newdata, txName, ...){
+          definition = function(object, newdata, ...){
 
                          mm <- predict(object = object@modelObjectFit, 
                                        newdata=newdata, ...)
 
-                         nfv <- ncol(mm)
+                         testComplete <- isTRUE(all.equal(rowSums(mm),1.0))
 
-                         if( is(newdata[,txName], "factor") ) {
-                           nlevs <- length(levels(newdata[,txName]))
-                           nms <- levels(newdata[,txName])
-                         } else {
-                           nlevs <- length(unique(newdata[,txName]))
-                           nms <- as.character(sort(unique(newdata[,txName])))
-                         }
-
-                         if( nfv == {nlevs-1L} ) {
-
+                         if( !testComplete ) {
                            correction <- 1.0 - rowSums(mm)
 
                            if( object@small ) {                           
@@ -94,19 +86,22 @@ setMethod(f = "PredictPropen",
                            } else {                           
                              mm <- cbind(mm, correction)
                            }
-
-                         } else if( nfv != nlevs ) {
-                           msg <- paste("Number of tx options in data ",
-                                        "and/or fSet do not match ",
-                                        "model predictions from moPropen ",
-                                        "object.",sep="")
-                           UserError("input", msg)
-                           
                          }
 
-                         colnames(mm) <- nms
+                         if( ncol(mm) != length(object@levels) ) {
+                           DeveloperError("you still don't have it")
+                         }
+
+                         #---------------------------------------------------#
+                         # This is a fairly significant assumption:          #
+                         # The propensity for treatment model returns the    #
+                         # predictions in the order of the factors or in     #
+                         # sorted order of integers                          #
+                         #---------------------------------------------------#
+                         colnames(mm) <- object@levels
 
                          return( mm )
+
                        } )
 
 setMethod(f = "Residuals",
@@ -214,40 +209,48 @@ setMethod(f = "Predict",
 setMethod(f = "PredictPropen",
           signature = c(object = "PropenSubsetFitList",
                         newdata = "data.frame"),
-          definition = function(object, newdata, txName, ...){
+          definition = function(object, newdata, ...){
 
+                         #---------------------------------------------------#
+                         # Identify which treatment subsets are available    #
+                         # to each patient for the new patient data.         #
+                         #---------------------------------------------------#
                          txInfo <- object@txInfo
 
-                         fs <- feasibility(superSet = SuperSet(txInfo), 
-                                           fSet = SubsetRule(txInfo), 
-                                           txName = TxName(txInfo),
+                         fs <- feasibility(superSet = txInfo@superSet, 
+                                           fSet = txInfo@subsetRule, 
+                                           txName = txInfo@txName,
                                            data = newdata)
 
                          newPtSubset <- fs$ptsSubset
 
-                         nFits <- length(object)
-
-                         if( is(newdata[,txName], "factor") ) {
-                           nlevs <- length(levels(newdata[,txName]))
-                           nms <- levels(newdata[,txName])
-                         } else {
-                           nlevs <- length(unique(newdata[,txName]))
-                           nms <- as.character(sort(unique(newdata[,txName])))
-                         }
-
                          res <- matrix(data = 0.0, 
                                        nrow = nrow(newdata),
-                                       ncol = nlevs,
-                                       dimnames = list(NULL,nms) )
+                                       ncol = length(txInfo@superSet),
+                                       dimnames = list(NULL,txInfo@superSet) )
+
+                         #---------------------------------------------------#
+                         # For each fit in the object...                     #
+                         #---------------------------------------------------#
+                         nFits <- length(object)
 
                          for( i in 1L:nFits ) {
-                           u4f <- newPtSubset %in% Subset(object[[i]])
+                           #-----------------------------------------------#
+                           # identify which pts match the modeled subset.  #
+                           #-----------------------------------------------#
+                           u4f <- fs$ptsSubset %in% Subset(object[[i]])
 
-                           if( sum(u4f) == 0L ) next
+                           #-----------------------------------------------#
+                           # If none - cycle to next model fit.            #
+                           #-----------------------------------------------#
+                           if( !any(u4f) ) next
 
+                           #-----------------------------------------------#
+                           # Calculate propensity for subset of pts.       #
+                           #-----------------------------------------------#
                            temp <- PredictPropen(object = object[[i]],
-                                                 newdata = newdata[u4f,,drop=FALSE],
-                                                 txName = txName)
+                                                 newdata = newdata[u4f,,drop=FALSE])
+                           
                            nms <- colnames(temp)
                            res[u4f,nms] <- temp
                          }
@@ -377,23 +380,14 @@ setMethod(f = "Predict",
 setMethod(f = "PredictPropen", 
           signature = c(object = "PropenModelObjFit",
                         newdata = "data.frame"),
-          definition = function(object, newdata, txName, sset, ...){
+          definition = function(object, newdata, subset, ...){
 
                          mm <- predict(object = object@modelObjectFit, 
                                        newdata = newdata, ...)
 
-                         nfv <- ncol(mm)
+                         testComplete <- isTRUE(all.equal(rowSums(mm),1.0))
 
-                         if( is(newdata[,txName], "factor") ) {
-                           nlevs <- length(levels(newdata[,txName]))
-                           nms <- levels(newdata[,txName])
-                         } else {
-                           nlevs <- length(sset)
-                           nms <- sset
-                         }
-
-                         if( nfv == {nlevs-1L} ) {
-
+                         if( !testComplete ) {
                            correction <- 1.0 - rowSums(mm)
 
                            if( object@small ) {                           
@@ -401,17 +395,15 @@ setMethod(f = "PredictPropen",
                            } else {                           
                              mm <- cbind(mm, correction)
                            }
-
-                         } else if( nfv != nlevs ) {
-                           msg <- paste("Number of tx options in data ",
-                                        "and/or fSet do not match ",
-                                        "model predictions from moPropen ",
-                                        "object.",nfv,txName,nlevs,sep=" ")
-                           UserError("input", msg)
-                           
                          }
 
-                         colnames(mm) <- nms
+                         #---------------------------------------------------#
+                         # This is a fairly significant assumption:          #
+                         # The propensity for treatment model returns the    #
+                         # predictions in the order of the factors or in     #
+                         # sorted order of integers                          #
+                         #---------------------------------------------------#
+                         colnames(mm) <- subset
 
                          return( mm )
                        } )
@@ -488,10 +480,9 @@ setMethod(f = "Predict",
 
 setMethod(f = "PredictPropen", 
           signature = c(object="PropenFit"), 
-          definition = function(object, newdata, txName, ...){ 
+          definition = function(object, newdata, ...){ 
                          return( PredictPropen(object = object@fits, 
-                                               newdata = newdata, 
-                                               txName = txName, ...) )
+                                               newdata = newdata, ...) )
                        } )
 
 setMethod(f = "Print", 

@@ -8,7 +8,8 @@ the estimated second-stage contrast by fitting a constant variance function or a
 log-linear model to the residuals.
 }
 
-\usage{ iqLearnFSV(object, ..., moMain=NULL, moCont=NULL, data=NULL, iter=0) }
+\usage{ iqLearnFSV(object, ..., moMain = NULL, moCont = NULL, data = NULL, 
+                  iter = 0, suppress = FALSE) }
 
 \arguments{
   \item{object  }{an object of class \code{DynTxRegime}:
@@ -66,6 +67,8 @@ log-linear model to the residuals.
                  \code{moMain} and \code{moCont} must be
                  identical. By default, the choices in moMain are used.}
 
+  \item{suppress }{an object of class \code{logical}. If TRUE, final
+                   screen prints are suppressed.}
 
 }
 

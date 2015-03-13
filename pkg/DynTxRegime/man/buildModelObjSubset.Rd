@@ -11,8 +11,9 @@ the returned model object includes a specification of the decision point and a
 subset of the data to which the model is to be applied.
 }
 \usage{ 
-buildModelObjSubset(..., model, dp=1L, subset, solver.method, solver.args=NULL, 
-                    predict.method=NULL, predict.args=NULL)}
+buildModelObjSubset(..., model, dp = 1L, subset, 
+                    solver.method, solver.args = NULL, 
+                    predict.method = NULL, predict.args = NULL)}
 \arguments{
 
 \item{...           }{Ignored.}

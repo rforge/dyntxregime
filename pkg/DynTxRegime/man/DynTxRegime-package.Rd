@@ -6,16 +6,17 @@
 Methods for Estimating Dynamic Treatment Regimes
 }
 \description{
-Implementations of IQ-Learning, Q-Learning,
-Doubly Robust optimal treatment regimes, and
-Doubly Robust optimal treatment regimes from a classification perspective.
+Implementations of Interactive Q-Learning, Q-Learning,
+and value-search methods based on augmented
+inverse probability weighted estimators and inverse
+probability weighted estimators. 
 }
 \details{
 \tabular{ll}{
 Package: \tab DynTxRegime\cr
 Type: \tab Package\cr
-Version: \tab 2.0\cr
-Date: \tab 2015-01-21\cr
+Version: \tab 2.1\cr
+Date: \tab 2015-03-13\cr
 License: \tab GPL-2\cr
 Depends: \tab methods, modelObj, rgenoud\cr
 }

@@ -12,7 +12,8 @@ iqLearnFSC implements the first-stage regression of the
 estimated second-stage contrasts in the IQ-Learning algorithm (IQ3).
 }
 
-\usage{ iqLearnFSC(..., moMain, moCont, data, response, txName, iter=0) }
+\usage{ iqLearnFSC(..., moMain, moCont, data, response, txName, 
+                   iter = 0, suppress = FALSE) }
 
 \arguments{
 
@@ -69,6 +70,9 @@ estimated second-stage contrasts in the IQ-Learning algorithm (IQ3).
                  Note that if iter <= 0, all non-model components of the
                  \code{moMain} and \code{moCont} must be
                  identical. By default, the choices in moMain are used.}
+
+  \item{suppress }{an object of class \code{logical}. If TRUE, final
+                   screen prints are suppressed.}
 
 }
 

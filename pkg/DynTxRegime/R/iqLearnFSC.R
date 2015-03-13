@@ -53,7 +53,8 @@ iqLearnFSC <- function(...,
                        data,
                        response,
                        txName,
-                       iter = 0L){
+                       iter = 0L,
+                       suppress = FALSE){
 
   #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
   #++++++                         Verify Input                         ++++++#
@@ -207,7 +208,7 @@ iqLearnFSC <- function(...,
                 txVec = txVec,
                 call = match.call(),
                 est)
-  show(result)
+  if( !suppress ) show(result)
 
   return(result)
   

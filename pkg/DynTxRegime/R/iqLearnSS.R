@@ -59,7 +59,8 @@ iqLearnSS <- function(...,
                       data,
                       response,
                       txName,
-                      iter = 0L){
+                      iter = 0L,
+                      suppress = FALSE){
 
   #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
   #++++++                         Verify Input                         ++++++#
@@ -212,7 +213,7 @@ iqLearnSS <- function(...,
                 qFunctions = qFunctions,
                 est )
 
-  show(result)
+  if( !suppress ) show(result)
 
   return(result)
   

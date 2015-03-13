@@ -12,7 +12,8 @@ iqLearnFSM implements the first-stage regression of the estimated
 second-stage main effects (IQ2).
 }
 
-\usage{ iqLearnFSM(..., moMain, moCont, data, response, txName, iter=0L) }
+\usage{ iqLearnFSM(..., moMain, moCont, data, response, txName, 
+                   iter = 0L, suppress = FALSE) }
 
 \arguments{
   \item{\dots   }{ignored}
@@ -68,6 +69,9 @@ second-stage main effects (IQ2).
                  Note that if iter <= 0, all non-model components of the
                  \code{moMain} and \code{moCont} must be
                  identical. By default, the choices in moMain are used.}
+
+  \item{suppress }{an object of class \code{logical}. If TRUE, final
+                   screen prints are suppressed.}
 
 
 }

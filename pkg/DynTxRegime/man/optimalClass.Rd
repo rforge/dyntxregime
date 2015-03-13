@@ -11,7 +11,7 @@ of the contrast function to define a weighted classification
 problem. The method is limited to single decision point binary treatment regimes. 
 }
 \usage{ optimalClass(..., moPropen, moMain, moCont, moClass, 
-data, response, txName, iter=0L)
+data, response, txName, iter=0L, suppress = FALSE)
 }
 \arguments{
  \item{...      }{ignored.}
@@ -105,6 +105,9 @@ moPropen@predict.args <- list("type"="response",
                  Note that if iter <= 0, all non-model components of the
                  \code{moMain} and \code{moCont} must be
                  identical. By default, the choices in moMain are used.}
+
+  \item{suppress }{an object of class \code{logical}. If TRUE,
+                   final screen prints will be suppressed.}
 }
 
 \details{
