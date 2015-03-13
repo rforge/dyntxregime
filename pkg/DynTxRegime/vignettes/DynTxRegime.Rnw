@@ -239,7 +239,7 @@ Both $Q$-learning and Interactive $Q$-learning are outcome regression methods. T
 Q_{K}(\barx{K}, \bara{K}) &=& \mathbb{E}(Y \given{K}), \nonumber
 \end{eqnarray}
 Thus, the optimal treatment at the $K^{th}$ stage is
-\begin{eqnarray{
+\begin{eqnarray}
 g_{K}^{opt}(\barx{K}, \bara{K}) &=& \arg \max_{ a_{K} \in \fset{K} } Q_{K}(\barX{K}, \barA{K-1}, a_{K}), \nonumber
 \end{eqnarray}
 Thus, $g^{opt}_K$ yields the treatment option at decision $K$ that maximizes the potential outcome given prior covariate and treatment history.
@@ -1794,13 +1794,16 @@ regimes[[1]] <- function(a, b, d, data){
                   as.numeric(a + b*data$parentBMI + d*data$baselineBMI > 0 )
                 }
 regimes[[2]] <- function(a, b, d, data){
-                  if(data$R < 0.5) return(1-data$A1)
-                  return(as.numeric(a + b*data$month4BMI + d*data$A1 > 0 ))
+                  res <- numeric(nrow(data))
+                  tst <- data$R < 0.5
+                  res[tst] <- 1-data$A1[tst]
+                  res[!tst] <- (a + b*data$month4BMI[!tst] + d*data$A1[!tst] > 0 )
+                  return(res)
                 }
 @
 
 The function call is the same, with the exception of \argument{fSet}.  Because the calculation and screen print are lengthy, it is not executed within the vignette.
-<<echo=TRUE>>=
+<<>>=
 fitSeq2_FS <- optimalSeq(moPropen = moPropen, 
                          moMain = moMain, moCont = moCont,
                          fSet = fSet,
