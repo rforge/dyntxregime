@@ -156,17 +156,14 @@ setMethod(f = "ModelObjectFit",
 setMethod(f = "OptTx",    
           signature = c(x = "OptimalSeq",
                         newdata = "missing"), 
-          definition = function(x, newdata, dp, ...){  
-                         if(missing(dp)) stop("Must provide dp")
+          definition = function(x, newdata, dp=1L, ...){  
                          return( x@optTx[,dp] ) 
                        } )
 
 setMethod(f = "OptTx",
           signature = c(x = "OptimalSeq", 
                         newdata = "data.frame"),
-          definition = function (x, newdata, dp, ...){
-
-                         if(missing(dp)) stop("Must provide dp")
+          definition = function (x, newdata, dp=1L, ...){
 
                          regs <- x@regimes
                          pars <- x@varEst
