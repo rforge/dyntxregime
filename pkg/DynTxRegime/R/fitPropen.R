@@ -114,7 +114,7 @@ fitPropen <- function(moPropen,
     #----------------------------------------------------------------------#
     # Eliminate patients with only 1 tx option from dataset for fit        #
     #----------------------------------------------------------------------#
-    useGrps <- sapply(X = subsets, FUN = length) > 0.5
+    useGrps <- sapply(X = subsets, FUN = length) > 1.5
     use4fit <- ptsSubset %in% names(subsets)[useGrps]
 
     if( sum(use4fit) < 0.5 ) {

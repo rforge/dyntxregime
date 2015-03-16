@@ -111,10 +111,10 @@ optimalClass <- function(...,
   }
 
   if( is.null(moMain) && is.null(moCont) ){
-    cat("\nInverse Probability Weighted Estimator\n")
+    if( !suppress ) cat("\nInverse Probability Weighted Estimator\n")
     method <- "ipwe"
   } else {
-    cat("\nAugmented Inverse Probability Weighted Estimator\n")
+    if( !suppress ) cat("\nAugmented Inverse Probability Weighted Estimator\n")
     method <- "aipwe"
   }
 

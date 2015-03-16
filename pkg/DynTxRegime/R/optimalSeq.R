@@ -191,10 +191,10 @@ optimalSeq <- function(...,
   # Convert moPropen to internal class definition of needed.                 #
   #--------------------------------------------------------------------------#
   if( is(moCont, "NULL") && is(moMain, "NULL") ) {
-    cat("Inverse Probability Weighted Estimator\n")
+    if( !suppress ) cat("Inverse Probability Weighted Estimator\n")
     method <- 'ipwe'
   } else {
-    cat("Augmented Inverse Probability Weighted Estimator\n")
+    if( !suppress ) cat("Augmented Inverse Probability Weighted Estimator\n")
     method <- 'aipwe'
   }
 
