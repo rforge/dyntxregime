@@ -217,7 +217,7 @@ optimalSeq_AIPWE <- function(eta,
       #------------------------------------------------------------------#
       # Eliminate patients with only 1 tx option from dataset for fit    #
       #------------------------------------------------------------------#
-      useGrps <- sapply(X = txI@subsets, FUN = length) > 1L
+      useGrps <- sapply(X = txI@subsets, FUN = length) > 1.5
       use4fit <- txI@ptsSubset %in% names(txI@subsets)[which(useGrps)]
 
       #------------------------------------------------------------------#
@@ -281,12 +281,21 @@ optimalSeq_AIPWE <- function(eta,
     useGrps <- sapply(X = txI@subsets, FUN = length) > 1.5
     use4fit <- txI@ptsSubset %in% names(txI@subsets)[which(useGrps)]
 
+    ss <- txI@superSet
+    lss <- logical(length(txI@superSet))
+    for( it in 1:sum(useGrps) ) {
+      if( !useGrps[it] ) next
+      lss <- lss | (ss %in% txI@subsets[[it]])
+    }
+
+    ss <- ss[lss]
+
     #----------------------------------------------------------------------#
     # Calculate propensity for treatment for subset of patients            #
     #----------------------------------------------------------------------#
     mm <- PredictPropen(object = proI, 
                         newdata = l.data[use4fit,,drop=FALSE], 
-                        subset = txI@superSet)
+                        subset = ss)
 
     #----------------------------------------------------------------------#
     # Convert assigned treatment to character                              #
@@ -339,7 +348,7 @@ optimalSeq_AIPWE <- function(eta,
     #----------------------------------------------------------------------#
     # Eliminate patients with only 1 tx option from dataset for fit        #
     #----------------------------------------------------------------------#
-    useGrps <- which(sapply(X = Subsets(txInfoTemp), FUN = length) > 1L)
+    useGrps <- which(sapply(X = Subsets(txInfoTemp), FUN = length) > 1.5)
     use4fit <- PtsSubset(txInfoTemp) %in% names(Subsets(txInfoTemp))[useGrps]
 
     #----------------------------------------------------------------------#

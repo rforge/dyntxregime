@@ -202,6 +202,14 @@ optimalSeq <- function(...,
                "moMain" = moMain,
                "moCont" = moCont)
 
+  if( is(moMain, "list") && all(is(unlist(moMain),"NULL")) ) {
+    moMain <- NULL
+  }
+
+  if( is(moCont, "list") && all(is(unlist(moCont),"NULL")) ) {
+    moCont <- NULL
+  }
+
   for( i in 1L:3L ) {
     if( is(objs[[i]], "NULL") ) next
 
