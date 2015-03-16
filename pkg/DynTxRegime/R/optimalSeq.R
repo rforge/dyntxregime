@@ -198,10 +198,6 @@ optimalSeq <- function(...,
     method <- 'aipwe'
   }
 
-  objs <- list("moPropen" = moPropen,
-               "moMain" = moMain,
-               "moCont" = moCont)
-
   if( is(moMain, "list") && all(is(unlist(moMain),"NULL")) ) {
     moMain <- NULL
   }
@@ -209,6 +205,10 @@ optimalSeq <- function(...,
   if( is(moCont, "list") && all(is(unlist(moCont),"NULL")) ) {
     moCont <- NULL
   }
+
+  objs <- list("moPropen" = moPropen,
+               "moMain" = moMain,
+               "moCont" = moCont)
 
   for( i in 1L:3L ) {
     if( is(objs[[i]], "NULL") ) next
