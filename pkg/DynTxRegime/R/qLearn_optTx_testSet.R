@@ -91,7 +91,7 @@ qLearn_optTx_testSet <- function (object,
   #--------------------------------------------------------------------------#
   # Identify the maximum Q-Function, thus optimal tx                         #
   #--------------------------------------------------------------------------#
-  q2opt <- max.col(qFunctions, ties.method='first')
+  q2opt <- apply(qFunctions,1,which.max)
 
   if( is(Base(object), "character") ) {
     optTx <- factor(colnames(qFunctions)[q2opt],

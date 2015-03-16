@@ -213,7 +213,7 @@ qLearn <- function(...,
   #++++++                         Calculation                          ++++++#
   #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
 
-  cat("\n\nStep ", step, " of Q-learning algorithm.\n\n")
+  if( !suppress ) cat("\n\nStep ", step, " of Q-learning algorithm.\n\n")
 
   if( is(fSet, "NULL") || is(fSet, "function") ){
 
@@ -272,7 +272,7 @@ qLearn <- function(...,
     qFunctions[inss,rmss] <- NA
   }
 
-  q2opt <- max.col(qFunctions, ties.method="first")
+  q2opt <- apply(qFunctions,1,which.max)
 
   if( is(data[,txName], "factor") ) {
     optTx <- factor(colnames(qFunctions)[q2opt],
