@@ -272,7 +272,15 @@ qLearn <- function(...,
     qFunctions[inss,rmss] <- NA
   }
 
-  q2opt <- apply(qFunctions,1,which.max)
+  fun <- function(x){
+    if(all(is.na(x))) { 
+      return(NA) 
+    } else {
+      return(which.max(x))
+    }
+  }
+
+  q2opt <- apply(qFunctions,1,fun)
 
   if( is(data[,txName], "factor") ) {
     optTx <- factor(colnames(qFunctions)[q2opt],
