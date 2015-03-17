@@ -328,6 +328,7 @@ setMethod(f = "MySummary",
 #::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::#
 setClass("PropenModelObjFit",
          slots = c(         small = "logical",
+                           levels = "character",
                    modelObjectFit = "modelObjFit"))
 
 setMethod(f = "Coef",
@@ -380,7 +381,7 @@ setMethod(f = "Predict",
 setMethod(f = "PredictPropen", 
           signature = c(object = "PropenModelObjFit",
                         newdata = "data.frame"),
-          definition = function(object, newdata, subset, ...){
+          definition = function(object, newdata, ...){
 
                          mm <- predict(object = object@modelObjectFit, 
                                        newdata = newdata, ...)
@@ -403,7 +404,7 @@ setMethod(f = "PredictPropen",
                          # predictions in the order of the factors or in     #
                          # sorted order of integers                          #
                          #---------------------------------------------------#
-                         colnames(mm) <- subset
+                         colnames(mm) <- object@levels
 
                          return( mm )
                        } )

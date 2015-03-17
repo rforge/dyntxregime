@@ -122,7 +122,8 @@ optimalSeq_IPWE <- function(eta,
     #         = 0 if patient tx not in accordance with regime at dp i.     #
     #           I(A_i != g_i)                                              #
     #----------------------------------------------------------------------#
-    ind[,i] <- as.integer(l.data[,txNm] == reg.g)
+    ind[,i] <- as.integer(l.data[,txNm] == reg.g | 
+                          (is.na(l.data[,txNm]) & is.na(reg.g)))
 
     #----------------------------------------------------------------------#
     # Change ith tx for all patients to be in accordance with current      #
@@ -152,21 +153,11 @@ optimalSeq_IPWE <- function(eta,
     useGrps <- sapply(X = txI@subsets, FUN = length) > 1.5
     use4fit <- txI@ptsSubset %in% names(txI@subsets)[which(useGrps)]
 
-    ss <- txI@superSet
-    lss <- logical(length(txI@superSet))
-    for( it in 1:sum(useGrps) ) {
-      if( !useGrps[it] ) next
-      lss <- lss | (ss %in% txI@subsets[[it]])
-    }
-
-    ss <- ss[lss]
-
     #----------------------------------------------------------------------#
     # Calculate propensity for treatment for subset of patients            #
     #----------------------------------------------------------------------#
     mm <- PredictPropen(object = proI, 
-                        newdata = l.data[use4fit,,drop=FALSE], 
-                        subset = ss)
+                        newdata = l.data[use4fit,,drop=FALSE])
 
     #----------------------------------------------------------------------#
     # Convert assigned treatment to character                              #

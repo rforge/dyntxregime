@@ -45,7 +45,7 @@ fitPropen <- function(moPropen,
 
       if( length(indSubset) < 0.5 ) {
         UserError("input", 
-                  paste("Unable to match subset ", modelSubset, 
+                  paste("Unable to match moPropen subset ", modelSubset, 
                         " to a subset defined by the fSet.", sep=""))
       }
 
@@ -56,7 +56,7 @@ fitPropen <- function(moPropen,
 
       if( sum(use4fit) < 0.5 ) {
         UserError("input", 
-                  paste("No observations match model subset:",
+                  paste("No observations match moPropen model subset:",
                         paste(modelSubset,collapse=","),sep=" "))
       }
 
@@ -72,34 +72,37 @@ fitPropen <- function(moPropen,
         predArgs[["propen.missing"]] <- NULL
       } 
       predictorArgs(moPropen[[k]]@modelObject) <- predArgs
+      
+      #------------------------------------------------------------------#
+      # Subset modeling causes problems with identifiability of tx levels#
+      # The following tries to track what is being estimated. If tx is   #
+      # a factor, the tx vector for the subset of data is recast as      #
+      # another factor variable to get the correct levels. If tx is an   #
+      # integer, the unique tx values for the subset of data are sorted  #
+      # It is thus assumed that the prediction method with return the    #
+      # probability matrix in the default order of factors or in sorted  #
+      # order of the integer values.                                     #
+      #------------------------------------------------------------------#
+      tData <- data[use4fit,,drop=FALSE]
 
-      if( is(data[,txInfo@txName],"factor") ) {
-
-        tempTx <- data[use4fit,txInfo@txName]
-        tempTx <- levels(tempTx)[tempTx]
-        newLevels <- sort(unique(tempTx))
-        tempTx <- factor(tempTx,levels=newLevels)
-
-        tData <- data[use4fit,,drop=FALSE]
-        tData[,txInfo@txName] <- tempTx
-
+      if( is.factor(data[,txName]) ) {
+        tempTx <- factor(data[use4fit,txName])
+        levs <- levels(tempTx)
       } else {
-
-        tempTx <- data[use4fit,txInfo@txName]
-        newLevels <- as.character(round(sort(unique(tempTx)),0L))
-
-        tData <- data[use4fit,,drop=FALSE]
-
+        tempTx <- data[use4fit,txName]
+        levs <- sort(unique(round(tempTx,0L)))
+        levs <- as.character(levs)
       }
       
-
+      tData[,txInfo@txName] <- tempTx
+      
       fitResult <- Fit(object = moPropen[[k]], 
                        data = tData, 
                        response = tData[,txName])
 
       propenFitObj[[k]] <- new("PropenSubsetFit",
                                subset = modelSubset,
-                               levels = newLevels,
+                               levels = levs,
                                small = small,
                                modelObjectFit = fitResult)
 
@@ -120,6 +123,24 @@ fitPropen <- function(moPropen,
     if( sum(use4fit) < 0.5 ) {
       UserError("input",
                 "No patients have more than 1 treatment option.")
+    }
+    
+    #----------------------------------------------------------------------#
+    # feasibility rules also causes problems w/ identifiability of levels  #
+    # The following tries to track what is being estimated. If tx is       #
+    # a factor, the tx vector for the subset of data is recast as          #
+    # another factor variable to get the correct levels. If tx is an       #
+    # integer, the unique tx values for the subset of data are sorted      #
+    # It is thus assumed that the prediction method with return the        #
+    # probability matrix in the default order of factors or in sorted      #
+    # order of the integer values.                                         #
+    #----------------------------------------------------------------------#
+    if( is.factor(data[,txName]) ) {
+      levs <- factor(data[use4fit,txName])
+      levs <- levels(levs)
+    } else {
+      levs <- sort(unique(round(data[use4fit,txName],0L)))
+      levs <- as.character(levs)
     }
 
     predArgs <- predictorArgs(moPropen)
@@ -144,6 +165,7 @@ fitPropen <- function(moPropen,
 
     propenFitObj <- new("PropenModelObjFit",
                         modelObjectFit = propenFitObj,
+                        levels = levs,
                         small = small)
   } else {
 
