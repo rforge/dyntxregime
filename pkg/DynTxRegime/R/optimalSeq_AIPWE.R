@@ -408,7 +408,6 @@ optimalSeq_AIPWE <- function(eta,
   #     (      Pr(C_{eta} > K)           )                                   #
   #--------------------------------------------------------------------------#
   mn <- sum(DR + AC/pc*as.vector(response), na.rm=TRUE)/as.numeric(nSamples)
-  print(mn)
 
   return(mn)
 }
