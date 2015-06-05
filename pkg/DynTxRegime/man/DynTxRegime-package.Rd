@@ -5,6 +5,7 @@
 \title{
 Methods for Estimating Dynamic Treatment Regimes
 }
+
 \description{
 Implementations of Interactive Q-Learning, Q-Learning,
 and value-search methods based on augmented
