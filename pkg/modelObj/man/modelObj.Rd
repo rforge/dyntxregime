@@ -9,6 +9,7 @@ Create an Object of Class modelObj
 A utility function to transfer user defined
 models and estimation methods to an object of class modelObj.
 }
+
 \usage{ 
 buildModelObj(model, solver.method=NULL, solver.args=NULL, 
 predict.method=NULL, predict.args=NULL)
