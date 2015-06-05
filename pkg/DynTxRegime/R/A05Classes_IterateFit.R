@@ -5,6 +5,10 @@
 #::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::#
 # contains results obtained by a call to modelObjFit with separate models      #
 #                                                                              #
+#   baseLevel          : character or numeric value of base treatment level    #
+#                                                                              #
+#   txName             : column header of data containing treatment variable   #
+#                                                                              #
 #   modelObjectFitMain : An object of class modelObjFit for main effects model #
 #                                                                              #
 #   modelObjectFitCont : An object of class modelObjFit for contrast model     #
@@ -15,6 +19,46 @@
 #                                                                              #
 #   yContHat           : fitted contrast                                       #
 #                                                                              #
+#::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::#
+# Available Methods:                                                           #
+#                                                                              #
+# Base        : Returns value in slot `baseLevel'                              #
+#                                                                              #
+# Coef        : Returns the coefficients, as defined by the regression method. #
+#               A list is returned with element names "MainEffect" & "Contrast"#
+#                                                                              #
+# FitObject   : Returns the value object returned by the regression method.    #
+#               A list is returned with element names "MainEffect" & "Contrast"#
+#                                                                              #
+# FittedCont  : Returns value in slot 'yContHat'                               #
+#                                                                              #
+# FittedMain  : Returns value in slot 'yMainHat'                               #
+#                                                                              #
+# FitType     : Returns value in slot 'fitType'                                #
+#                                                                              #
+# ModelObjectFit : Returns value in slot 'modelObjectFit'                      #
+#               A list is returned with element names "MainEffect" & "Contrast"#
+#                                                                              #
+# MySummary   : Returns a list of summary objects as defined by the regression #
+#               method.                                                        #
+#               A list is returned with element names "MainEffect" & "Contrast"#
+#                                                                              #
+# Plot        : Generates plots with augmented titles indicating the modeling  #
+#               objects passed in  (MainEffect, Contrast)                      #
+#                                                                              #
+# PredictCont : Takes new data and uses predict function corresponding to      #
+#               the regression method to obtain predictions for contrast       #
+#               component. Uses base level.                                    #
+#                                                                              #
+# PredictMain : Takes new data and uses predict function corresponding to      #
+#               the regression method to obtain predictions for main effect    #
+#               component. Uses base level.                                    #
+#                                                                              #
+# Print       : Prints modelObjectFit                                          #
+#                                                                              #
+# Residuals   : Returns value in slot 'residuals'                              #
+#                                                                              #
+# Show        : Print modelObjectFit                                           #
 #::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::#
 setClass(Class = "IterateFit", 
          slots = c(baseLevel = "character or numeric",
@@ -89,12 +133,12 @@ setMethod(f = "Plot",
                          argList <- list(...)
                          if( !suppress ) {
                            if( is(argList[[ "main" ]], "NULL") ) {
-                             argList[[ "main" ]] <- "moMain"
+                             argList[[ "main" ]] <- "MainEffect"
                            } else if( is(argList[[ "sub" ]], "NULL") ) {
-                             argList[[ "sub" ]] <- "moMain"
+                             argList[[ "sub" ]] <- "MainEffect"
                            } else {
                              argList[[ "sub" ]] <- paste(argList[[ "sub" ]], 
-                                                         " (moMain)", sep="")
+                                                         " (MainEffect)", sep="")
                            }
                          }
                          argList[[ "x" ]] <- x@modelObjectFitMain
@@ -103,12 +147,12 @@ setMethod(f = "Plot",
                          argList <- list(...)
                          if( !suppress ) {
                            if( is(argList[[ "main" ]], "NULL") ) {
-                             argList[[ "main" ]] <- "moCont"
+                             argList[[ "main" ]] <- "Contrast"
                            } else if( is(argList[[ "sub" ]], "NULL") ) {
-                             argList[[ "sub" ]] <- "moCont"
+                             argList[[ "sub" ]] <- "Contrast"
                            } else {
                              argList[[ "sub" ]] <- paste(argList[[ "sub" ]], 
-                                                         " (moCont)", sep="")
+                                                         " (Contrast)", sep="")
                            }
                          }
                          argList[[ "x" ]] <- x@modelObjectFitCont
@@ -190,9 +234,9 @@ setMethod(f = "PredictMain",
 setMethod(f = "Print", 
           signature = c(x = "IterateFit"), 
           definition = function(x, ...){
-                         cat("\n *** moMain Fit *** \n")
+                         cat("\n *** MainEffect Fit *** \n")
                          show(x@modelObjectFitMain)
-                         cat("\n *** moCont Fit *** \n")
+                         cat("\n *** Contrast Fit *** \n")
                          show(x@modelObjectFitCont)
                        } )
 
@@ -205,9 +249,9 @@ setMethod(f = "Residuals",
 setMethod(f = "Show", 
           signature = c(object = "IterateFit"), 
           definition = function(object, ...){
-                         cat("\n *** moMain Fit *** \n")
+                         cat("\n *** MainEffect Fit *** \n")
                          show(object@modelObjectFitMain)
-                         cat("\n *** moCont Fit *** \n")
+                         cat("\n *** Contrast Fit *** \n")
                          show(object@modelObjectFitCont)
                        } )
 

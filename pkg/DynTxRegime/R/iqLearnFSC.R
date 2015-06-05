@@ -7,13 +7,11 @@
 # moMain  : an object of class modelObj that defines the models and R methods  #
 #           to be used to obtain parameter estimates and predictions for main  #
 #           effects component of outcome regression.                           #
-#           See ?modelObj for details.                                         #
 #           NULL is an acceptable value if moCont is defined.                  #
 #                                                                              #
 # moCont  : an object of class modelObj that defines the models and R methods  #
 #           to be used to obtain parameter estimates and predictions for       #
 #           contrasts component of outcome regression.                         #
-#           See ?modelObj for details.                                         #
 #           NULL is an acceptable value if moMain is defined.                  #
 #                                                                              #
 # data    : data.frame of covariates and treatment histories                   #
@@ -89,7 +87,7 @@ iqLearnFSC <- function(...,
     UserError("input",
               "At least one of {moMain, moCont} must of provided.")
   } else if( is(moMain,'NULL') || is(moCont,'NULL') ) {
-    if( iter != 0L ) {
+    if( iter > 0.5 ) {
       iter = 0L
       cat("Input variable iter reset to 0.\n")
     }
@@ -119,6 +117,9 @@ iqLearnFSC <- function(...,
               "'txName' must be a character.")
   }
 
+  #--------------------------------------------------------------------------#
+  # Verify that treatment variable is found in data.                         #
+  #--------------------------------------------------------------------------#
   txVec <- try(data[,txName], silent = TRUE)
 
   if( is(txVec,"try-error") ) {
@@ -126,6 +127,10 @@ iqLearnFSC <- function(...,
               paste(txName, " not found in data.", sep="") )
   }
 
+  #--------------------------------------------------------------------------#
+  # Treatment must be an integer.                                            #
+  # If a factor, throw error. If numeric, recast as integer.                 #
+  #--------------------------------------------------------------------------#
   if( is(txVec,"factor") ) {
       UserError("input",
                 "Treatment variable must be an integer.")
@@ -162,12 +167,12 @@ iqLearnFSC <- function(...,
     UserError("input",
               "Treatment must be coded as {-1,1}")
   }
+
   #--------------------------------------------------------------------------#
   # The response is taken to be the estimated contrast component of the      #
   # second-stage regression.                                                 #
   #--------------------------------------------------------------------------#
   response <- FittedCont(response)
-
 
   #--------------------------------------------------------------------------#
   # Obtain fit of moMain and moCont models                                   #
@@ -189,13 +194,29 @@ iqLearnFSC <- function(...,
                        ncol = 2L,
                        dimnames = list(NULL,c("-1","1")))
 
+  #--------------------------------------------------------------------------#
+  # Set treatment to -1 for all samples.                                     #
+  #--------------------------------------------------------------------------#
   data[,txName] <- -1L
 
+  #--------------------------------------------------------------------------#
+  # Obtain predicted main effects and contrast for this new dataset.         #
+  # Note that the contrast model explicitly includes the treatment variable  #
+  # and thus does not need to be included in the prediction expression.      #
+  #--------------------------------------------------------------------------#
   qFunctions[,1L] <- PredictMain(object = est, newdata = data) +
                      PredictCont(object = est, newdata = data)
 
+  #--------------------------------------------------------------------------#
+  # Set treatment to 1 for all samples.                                      #
+  #--------------------------------------------------------------------------#
   data[,txName] <- 1L
 
+  #--------------------------------------------------------------------------#
+  # Obtain predicted main effects and contrast for this new dataset.         #
+  # Note that the contrast model explicitly includes the treatment variable  #
+  # and thus does not need to be included in the prediction expression.      #
+  #--------------------------------------------------------------------------#
   qFunctions[,2L] <- PredictMain(object = est, newdata = data) +
                      PredictCont(object = est, newdata = data)
 
@@ -208,6 +229,7 @@ iqLearnFSC <- function(...,
                 txVec = txVec,
                 call = match.call(),
                 est)
+
   if( !suppress ) show(result)
 
   return(result)

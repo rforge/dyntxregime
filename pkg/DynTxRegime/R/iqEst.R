@@ -8,12 +8,10 @@
 # moMain   : an object of class modelObj that defines the models and R methods #
 #            to be used to obtain parameter estimates and predictions for main #
 #            effects component of the outcome regression.                      #
-#            See ?modelObj for details.                                        #
 #                                                                              #
 # moCont   : an object of class modelObj that defines the models and R methods #
 #            to be used to obtain parameter estimates and predictions for the  #
 #            contrasts component of the outcome regression.                    #
-#            See ?modelObj for details.                                        #
 #                                                                              #
 # data     : data.frame of covariates and treatment histories                  #
 #                                                                              #

@@ -11,18 +11,25 @@
 #                                                                              #
 #==============================================================================#
 #=                                                                            =#
-#= returns a list :                                                           =#
-#=  $pos : value function if positive tx option given                         =#
-#=  $neg : value function if negative tx option given                         =#
+#= returns a matrix of value functions column 1: tx=-1, column 2: tx = 1.     =#
 #=                                                                            =#
 #==============================================================================#
 iqLearn_pm <- function(object, 
                        newdata){
 
+  #--------------------------------------------------------------------------#
+  # Retrieve the number of samples in new dataset.                           #
+  #--------------------------------------------------------------------------#
   n <- nrow(newdata)
 
+  #--------------------------------------------------------------------------#
+  # Replicate data to calculate +/- simultaneously.                          #
+  #--------------------------------------------------------------------------#
   data <- rbind(newdata, newdata)
 
+  #--------------------------------------------------------------------------#
+  # First n samples have tx = -1. Second n samples have tx = +1              #
+  #--------------------------------------------------------------------------#
   tx <- c(rep(-1L,n),rep(1L,n))
 
   if( TxName(object) %in% colnames(newdata) ){
@@ -31,8 +38,9 @@ iqLearn_pm <- function(object,
     data <- cbind(data,tx)
     colnames(data) <- c(colnames(newdata),TxName(object))
   }
+
   #--------------------------------------------------------------------------#
-  # Calculate value function for positive treatment                          #
+  # Calculate value function                                                 #
   # Note that predict method has to be called because combined fits cannot   #
   # be broken down into "main" and "contrast"; "contrast" will be sent back  #
   # as zero.                                                                 #

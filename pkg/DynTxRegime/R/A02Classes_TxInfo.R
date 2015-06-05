@@ -12,7 +12,7 @@
 #                                                                              #
 # subsets    : a named list of the tx subsets                                  #
 #                                                                              #
-# superSet   : a factor vector of all possible tx options                      #
+# superSet   : a character vector of all possible tx options                   #
 #                                                                              #
 # txName     : column header of data.frame that contains the tx variable       #
 #                                                                              #

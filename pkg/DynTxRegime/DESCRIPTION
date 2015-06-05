@@ -2,7 +2,7 @@ Package: DynTxRegime
 Type: Package
 Title: Methods for Estimating Dynamic Treatment Regimes
 Version: 2.1
-Date: 2015-03-13
+Date: 2015-06-06
 Author: S. T. Holloway, E. B. Laber, K. A. Linn, B. Zhang, M. Davidian, and A. A. Tsiatis
 Maintainer: Shannon T. Holloway <sthollow@ncsu.edu>
 Description: Methods to estimate Dynamic Treatment Regimes using Interactive Q-Learning, Q-Learning, and value-search methods based on Augmented Inverse Probability Weighted Estimators, and Inverse Probability Weighted Estimators

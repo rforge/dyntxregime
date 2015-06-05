@@ -1,6 +1,6 @@
 #::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::#
 #                                                                              #
-# iqLearn_optTx1 : Estimate or Recommended optimal first-stage treatment       #
+# iqLearn_optTx1 : Estimate the recommended optimal first-stage treatment      #
 #                                                                              #
 #::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::#
 #                                                                              #
@@ -29,15 +29,27 @@ iqLearn_optTx1 <- function(mainObj,
                            dens, 
                            newdata){
 
+  #--------------------------------------------------------------------------#
+  # Recast dens input to lower case.                                         #
+  #--------------------------------------------------------------------------#
   dens <- tolower(dens)
 
+  #--------------------------------------------------------------------------#
+  # Retrieve treatment information from contrast object                      #
+  #--------------------------------------------------------------------------#
   tx <- TxVec(cmObj)
 
   if( !missing(newdata) ) {
-
+    #----------------------------------------------------------------------#
+    # If new data is provided obtain predicted values for the main effect  #
+    # and contrast regressions at each treatment option.                   #
+    #----------------------------------------------------------------------#
     lhat <- iqLearn_pm(object = mainObj, newdata = newdata)
     mu <- iqLearn_pm(object = cmObj, newdata = newdata)
 
+    #----------------------------------------------------------------------#
+    # Retrieve the variance information.                                   #
+    #----------------------------------------------------------------------#
     if( is(sigObj,'IQLearnFS_VHom') ){
       sig <- StdDev(sigObj)
     } else if( is(sigObj,'IQLearnFS_VHet') ){
@@ -46,6 +58,9 @@ iqLearn_optTx1 <- function(mainObj,
     }
 
   } else {
+    #----------------------------------------------------------------------#
+    # If no new data is provided retrieve fitted values.                   #
+    #----------------------------------------------------------------------#
     lhat <- mainObj@qFunctions
     mu   <- cmObj@qFunctions
     sig  <- sigObj@qFunctions
@@ -88,6 +103,7 @@ iqLearn_optTx1 <- function(mainObj,
   }
 
   colnames(q1Hat) <- c("-1","1")
+
   #--------------------------------------------------------------------------#
   # Optimal tx is that with the largest value function                       #
   #--------------------------------------------------------------------------#
@@ -95,7 +111,7 @@ iqLearn_optTx1 <- function(mainObj,
   optTx <- as.integer(colnames(q1Hat)[optTx])
   
   #--------------------------------------------------------------------------#
-  # Return value functions and optimal treatment                             #
+  # Return q-functions and optimal treatment                                 #
   #--------------------------------------------------------------------------#
   return( list("qFunctions" = q1Hat, 
                 "optimalTx" = optTx) )

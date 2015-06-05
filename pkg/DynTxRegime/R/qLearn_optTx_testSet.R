@@ -16,7 +16,7 @@ qLearn_optTx_testSet <- function (object,
   p <- ncol(newdata)
 
   #--------------------------------------------------------------------------#
-  # Retrive superset of tx options and tx column header from QLearn object   #
+  # Retrieve superset of tx options and tx column header from QLearn object  #
   #--------------------------------------------------------------------------#
   sset <- SuperSet(object)
   txN <- TxName(object)
@@ -83,7 +83,6 @@ qLearn_optTx_testSet <- function (object,
     #----------------------------------------------------------------------#
     # Reset Q-Functions for those not in the subset to NA                  #
     #----------------------------------------------------------------------#
-
     qFunctions[tst,!j] <- NA
 
   }

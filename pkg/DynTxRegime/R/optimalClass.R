@@ -13,7 +13,6 @@
 # moPropen: an object of class modelObj, which defines the models and R        #
 #           methods to be used to obtain parameter estimates and               #
 #           predictions for the propensity for treatment.                      #
-#           See ?modelObj for details.                                         #
 #                                                                              #
 #           If the prediction method specified in moPropen returns             #
 #           predictions for only a subset of the categorical tx data,          #
@@ -24,20 +23,17 @@
 #           methods to be used to obtain parameter estimates and               #
 #           predictions for for the main effects component of the              #
 #           outcome regression.                                                #
-#           See ?modelObj for details.                                         #
 #           NULL is an appropriate value.                                      #
 #                                                                              #
 # moCont  : an object of class modelObj, which defines the models and R        #
 #           methods to be used to obtain parameter estimates and               #
 #           predictions for for the contrasts component of the                 #
 #           outcome regression.                                                #
-#           See ?modelObj for details.                                         #
 #           NULL is an appropriate value.                                      #
 #                                                                              #
 # moClass : an object of class modelObj, which defines the                     #
 #           models and R methods to be used to obtain parameter                #
 #           estimates and predictions for the classification.                  #
-#           See ?modelObj for details.                                         #
 #                                                                              #
 # data    : a data frame of the covariates and tx histories                    #
 #           tx variable will be recast as factor if not provided as such.      #
@@ -102,14 +98,17 @@ optimalClass <- function(...,
   #--------------------------------------------------------------------------#
   if( !is(moMain, 'modelObj') && !is(moMain, 'NULL') ){
     UserError("input", 
-              "moMain must an object of class modelObj")
+              "moMain must be an object of class modelObj or NULL")
   }
 
   if( !is(moCont, 'modelObj') && !is(moCont, 'NULL') ){
     UserError("input", 
-              "moCont must an object of class modelObj")
+              "moCont must be an object of class modelObj or NULL")
   }
 
+  #--------------------------------------------------------------------------#
+  # Determine requested estimator.                                           #
+  #--------------------------------------------------------------------------#
   if( is.null(moMain) && is.null(moCont) ){
     if( !suppress ) cat("\nInverse Probability Weighted Estimator\n")
     method <- "ipwe"
@@ -118,11 +117,17 @@ optimalClass <- function(...,
     method <- "aipwe"
   }
 
+  #--------------------------------------------------------------------------#
+  # moPropen must be provided and must be of class modelObj.                 #
+  #--------------------------------------------------------------------------#
   if( !is(moPropen,"modelObj") ){
     UserError("input", 
               "moPropen must an object of class modelObj")
   }
 
+  #--------------------------------------------------------------------------#
+  # moClass must be provided and must be of class modelObj.                  #
+  #--------------------------------------------------------------------------#
   if( !is(moClass,"modelObj") ){
     UserError("input", 
               "moClass must an object of class modelObj")
@@ -136,6 +141,9 @@ optimalClass <- function(...,
               "'txName' must be a character.")
   }
 
+  #--------------------------------------------------------------------------#
+  # verify that treatment variable is in provided data.frame.                #
+  #--------------------------------------------------------------------------#
   txVec <- try(data[,txName], silent = TRUE)
 
   if( is(txVec,"try-error") ) {
@@ -144,7 +152,8 @@ optimalClass <- function(...,
   }
 
   #--------------------------------------------------------------------------#
-  # Verify that tx is either an integer or a factor.                         #
+  # Treatment must be an integer.                                            #
+  # If a factor, throw error. If numeric, recast as integer.                 #
   #--------------------------------------------------------------------------#
   if( is(txVec,"factor") ) {
       UserError("input",
@@ -175,12 +184,18 @@ optimalClass <- function(...,
                       data = data, 
                       fSet = NULL)
 
+  #--------------------------------------------------------------------------#
+  # Verify that treatment if binary.                                         #
+  #--------------------------------------------------------------------------#
   superSet <- SuperSet(txInfo)
   if( as.integer(round(length(superSet),0L)) != 2L ) {
     UserError("input",
               "Only binary treatment options can be used in this method.")
   }
 
+  #--------------------------------------------------------------------------#
+  # Verify that treatment is {0,1}                                           #
+  #--------------------------------------------------------------------------#
   if( any( !(superSet %in% c("0","1")) ) ){
     UserError("input",
               "Treatments must be coded as 0 and 1")
@@ -199,12 +214,15 @@ optimalClass <- function(...,
                       iter = iter)
 
   #--------------------------------------------------------------------------#
-  # Calculate contrast                                                       #
+  # Obtain propensity predictions.                                           #
   #--------------------------------------------------------------------------#
   propenMatrix <- PredictPropen(object = core$propen,
                                 newdata = data, 
                                 subset = txInfo@superSet)
 
+  #--------------------------------------------------------------------------#
+  # Calculate contrast                                                       #
+  #--------------------------------------------------------------------------#
   if( tolower(method) == "aipwe" ) {
 
     contrast <- optimalClass_AIPWE(outcome = core$outcome, 
@@ -225,17 +243,19 @@ optimalClass <- function(...,
   #--------------------------------------------------------------------------#
   # Obtain classification fit                                                #
   #--------------------------------------------------------------------------#
-
   classFit <- optimalClass_classification(contrast = contrast$contrast, 
                                           moClass = moClass,  
                                           data = data)
 
   #--------------------------------------------------------------------------#
-  # Obtain classification prediction from fit                                #
+  # Calculate estimator.                                                     #
   #--------------------------------------------------------------------------#
   grp1 <- levels(classFit$opt)[classFit$opt] > 0.5
   estResponse <- sum(contrast$contrast[grp1])/nrow(data) + contrast$mean.mu0
 
+  #--------------------------------------------------------------------------#
+  # Create OptimalClass object and return to user.                           #
+  #--------------------------------------------------------------------------#
   oc1 <- new("OptimalClass",
              estVal = estResponse,
              classif = classFit$cf,

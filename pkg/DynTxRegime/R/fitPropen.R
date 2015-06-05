@@ -8,7 +8,6 @@
 #                 define the models and R method to be used to obtain          #
 #                 parameter estimates and predictions for the propensity of    #
 #                 treatment.                                                   #
-#                 See ?modelObj and/or ?modelObjSubset for details.            #
 #                                                                              #
 # txInfo        : an object of class txInfo                                    #
 #                                                                              #
@@ -23,11 +22,17 @@ fitPropen <- function(moPropen,
                       txInfo,
                       data){
 
+  #--------------------------------------------------------------------------#
+  # Retrieve feasible set information from treatment object.                 #
+  #--------------------------------------------------------------------------#
   subsets <- Subsets(txInfo)
   ptsSubset <- PtsSubset(txInfo)
   txName <- TxName(txInfo)
 
   if( is(moPropen, "ModelObjSubsetList") ){
+    #----------------------------------------------------------------------#
+    # If subset modeling is used, must match models to subsets.            #
+    #----------------------------------------------------------------------#
 
     propenFitObj <- list()
 
@@ -40,6 +45,7 @@ fitPropen <- function(moPropen,
 
       #------------------------------------------------------------------#
       # Identify which fSet subsets match the model subsets              #
+      # Note that a model can be applied to multiple subsets.            #
       #------------------------------------------------------------------#
       indSubset <- which( names(subsets) %in% modelSubset )
 
@@ -50,7 +56,7 @@ fitPropen <- function(moPropen,
       }
 
       #------------------------------------------------------------------#
-      # Determine which pts are associated with the model subsets        #
+      # Determine which samples are associated with the model subsets    #
       #------------------------------------------------------------------#
       use4fit <- ptsSubset %in% modelSubset
 
@@ -60,6 +66,11 @@ fitPropen <- function(moPropen,
                         paste(modelSubset,collapse=","),sep=" "))
       }
 
+      #------------------------------------------------------------------#
+      # Determine if the smallest or largest treatment is not present    #
+      # in returned predictions. Note that some methods return           #
+      # predictions for all treatment options.                           #
+      #------------------------------------------------------------------#
       predArgs <- predictorArgs(moPropen[[k]]@modelObject)
 
       if( is(predArgs[["propen.missing"]], "NULL") ) {
@@ -79,27 +90,44 @@ fitPropen <- function(moPropen,
       # a factor, the tx vector for the subset of data is recast as      #
       # another factor variable to get the correct levels. If tx is an   #
       # integer, the unique tx values for the subset of data are sorted  #
-      # It is thus assumed that the prediction method with return the    #
+      # It is thus assumed that the prediction method will return the    #
       # probability matrix in the default order of factors or in sorted  #
       # order of the integer values.                                     #
       #------------------------------------------------------------------#
       tData <- data[use4fit,,drop=FALSE]
 
       if( is.factor(data[,txName]) ) {
+        #--------------------------------------------------------------#
+        # If treatment is a factor, pull cases that are to be fit and  #
+        # reset levels                                                 #
+        #--------------------------------------------------------------#
         tempTx <- factor(data[use4fit,txName])
         levs <- levels(tempTx)
       } else {
+        #--------------------------------------------------------------#
+        # If treatment is not a factor, pull cases that are to be fit  #
+        # and define levels as the unique tx values.                   #
+        #--------------------------------------------------------------#
         tempTx <- data[use4fit,txName]
         levs <- sort(unique(round(tempTx,0L)))
         levs <- as.character(levs)
       }
       
+      #------------------------------------------------------------------#
+      # Reset treatment variable in data.frame using new vector.         #
+      #------------------------------------------------------------------#
       tData[,txInfo@txName] <- tempTx
       
+      #------------------------------------------------------------------#
+      # obtain fit.                                                      #
+      #------------------------------------------------------------------#
       fitResult <- Fit(object = moPropen[[k]], 
                        data = tData, 
                        response = tData[,txName])
 
+      #------------------------------------------------------------------#
+      # Store result as a new PropenSubsetFit object.                    #
+      #------------------------------------------------------------------#
       propenFitObj[[k]] <- new("PropenSubsetFit",
                                subset = modelSubset,
                                levels = levs,
@@ -108,6 +136,9 @@ fitPropen <- function(moPropen,
 
     }
 
+    #----------------------------------------------------------------------#
+    # Recast fit objects to PropenSubsetFitList.                           #
+    #----------------------------------------------------------------------#
     propenFitObj <- new("PropenSubsetFitList",
                         loo = propenFitObj,
                         txInfo = txInfo)
@@ -117,32 +148,13 @@ fitPropen <- function(moPropen,
     #----------------------------------------------------------------------#
     # Eliminate patients with only 1 tx option from dataset for fit        #
     #----------------------------------------------------------------------#
-    useGrps <- sapply(X = subsets, FUN = length) > 1.5
-    use4fit <- ptsSubset %in% names(subsets)[useGrps]
+    use4fit <- eliminateSingleTx(subsets=subsets, ptsSubset=ptsSubset)
 
-    if( sum(use4fit) < 0.5 ) {
-      UserError("input",
-                "No patients have more than 1 treatment option.")
-    }
-    
     #----------------------------------------------------------------------#
-    # feasibility rules also causes problems w/ identifiability of levels  #
-    # The following tries to track what is being estimated. If tx is       #
-    # a factor, the tx vector for the subset of data is recast as          #
-    # another factor variable to get the correct levels. If tx is an       #
-    # integer, the unique tx values for the subset of data are sorted      #
-    # It is thus assumed that the prediction method with return the        #
-    # probability matrix in the default order of factors or in sorted      #
-    # order of the integer values.                                         #
+    # Determine if the smallest or largest treatment is not present        #
+    # in returned predictions. Note that some methods return               #
+    # predictions for all treatment options.                               #
     #----------------------------------------------------------------------#
-    if( is.factor(data[,txName]) ) {
-      levs <- factor(data[use4fit,txName])
-      levs <- levels(levs)
-    } else {
-      levs <- sort(unique(round(data[use4fit,txName],0L)))
-      levs <- as.character(levs)
-    }
-
     predArgs <- predictorArgs(moPropen)
     if( is(predArgs[["propen.missing"]], "NULL") ) {
       small <- TRUE
@@ -157,12 +169,42 @@ fitPropen <- function(moPropen,
     predictorArgs(moPropen) <- predArgs
 
     #----------------------------------------------------------------------#
+    # feasibility rules also causes problems w/ identifiability of levels  #
+    # The following tries to track what is being estimated. If tx is       #
+    # a factor, the tx vector for the subset of data is recast as          #
+    # another factor variable to get the correct levels. If tx is an       #
+    # integer, the unique tx values for the subset of data are sorted      #
+    # It is thus assumed that the prediction method will return the        #
+    # probability matrix in the default order of factors or in sorted      #
+    # order of the integer values.                                         #
+    #----------------------------------------------------------------------#
+    if( is.factor(data[,txName]) ) {
+      #------------------------------------------------------------------#
+      # If treatment is a factor, pull cases that are to be fit and      #
+      # reset levels                                                     #
+      #------------------------------------------------------------------#
+      levs <- factor(data[use4fit,txName])
+      levs <- levels(levs)
+    } else {
+      #------------------------------------------------------------------#
+      # If treatment is not a factor, pull cases that are to be fit      #
+      # and define levels as the unique values.                          #
+      #------------------------------------------------------------------#
+      levs <- sort(unique(round(data[use4fit,txName],0L)))
+      levs <- as.character(levs)
+    }
+
+
+    #----------------------------------------------------------------------#
     # fit propen model using provided solver                               #
     #----------------------------------------------------------------------#
     propenFitObj <- fit(object = moPropen, 
                         data = data[use4fit,,drop=FALSE], 
                         response = data[use4fit,txName])
 
+    #----------------------------------------------------------------------#
+    # Store as PropenModelObjFit object.                                   #
+    #----------------------------------------------------------------------#
     propenFitObj <- new("PropenModelObjFit",
                         modelObjectFit = propenFitObj,
                         levels = levs,
@@ -173,59 +215,12 @@ fitPropen <- function(moPropen,
 
   }
 
+  #--------------------------------------------------------------------------#
+  # Recast result as one of class PropenFit.                                 #
+  #--------------------------------------------------------------------------#
   result <- new("PropenFit",
                 fits = propenFitObj)
 
   return(result)
 }
 
-
-#------------------------------------------------------------------------------#
-# prob_matrix : determine propensity for treatment matrix.                     #
-#------------------------------------------------------------------------------#
-#                                                                              #
-# fitObj : an object of class modelObjFit                                      #
-#                                                                              #
-# data   : full data frame of covariates.                                      #
-#                                                                              #
-# txName : a character indicating the column of data containing tx             #
-#                                                                              #
-#==============================================================================#
-#=                                                                            =#
-#= Returns a matrix of probabilities for all treatment categories of txg      =#
-#=                                                                            =#
-#==============================================================================#
-prob_matrix <- function(fitObj, 
-                        data, 
-                        txName,
-                        sset,
-                        msg = FALSE) {
-
-  tol <- 1.5e-8
-  
-  #--------------------------------------------------------------------------#
-  # Obtain predictions for entire dataset                                    #
-  #--------------------------------------------------------------------------#
-  mm <- PredictPropen(object = fitObj, 
-                      newdata = data, 
-                      txName = txName, 
-                      sset = sset)
-
-  #--------------------------------------------------------------------------#
-  # Verify that treatment probabilities are not negative                     #
-  #--------------------------------------------------------------------------#
-  if( any(mm < -tol) ) {
-    UserError("input",
-              "Treatment probabilities are negative. Verify moPropen inputs.")
-  }
-
-  #--------------------------------------------------------------------------#
-  # Verify that the total probability for each patient is <= 1               #
-  #--------------------------------------------------------------------------#
-  if( sum(rowSums(mm) > {1.0 + tol}) > 0.5 ) {
-    UserError("input",
-              "Sum of treatment probabilities >1. Verify moPropen inputs.")
-  }
-
-  return(mm)
-}

@@ -218,8 +218,8 @@ optimalSeq_AIPWE <- function(eta,
       #------------------------------------------------------------------#
       # Eliminate patients with only 1 tx option from dataset for fit    #
       #------------------------------------------------------------------#
-      useGrps <- sapply(X = txI@subsets, FUN = length) > 1.5
-      use4fit <- txI@ptsSubset %in% names(txI@subsets)[which(useGrps)]
+      use4fit <- eliminateSingleTx(subsets=txI@subsets, 
+                                   ptsSubset=txI@ptsSubset)
 
       #------------------------------------------------------------------#
       # For patients with only 1 tx, use response as the value function  #
@@ -279,8 +279,8 @@ optimalSeq_AIPWE <- function(eta,
     #----------------------------------------------------------------------#
     # For patients with only one treatment option, do not predict          #
     #----------------------------------------------------------------------#
-    useGrps <- sapply(X = txI@subsets, FUN = length) > 1.5
-    use4fit <- txI@ptsSubset %in% names(txI@subsets)[which(useGrps)]
+    use4fit <- eliminateSingleTx(subsets=txI@subsets, 
+                                 ptsSubset=txI@ptsSubset)
 
     #----------------------------------------------------------------------#
     # Calculate propensity for treatment for subset of patients            #
@@ -299,7 +299,7 @@ optimalSeq_AIPWE <- function(eta,
     }
 
     #----------------------------------------------------------------------#
-    # Retrieve probability of treatment being assigned treatment           #
+    # Retrieve probability of patient being assigned treatment             #
     #----------------------------------------------------------------------#
     probOfG <- numeric(nrow(l.data))
     probOfG[use4fit] <- sapply(1L:sum(use4fit), function(x){mm[x,reg.g[x]]})
@@ -339,8 +339,8 @@ optimalSeq_AIPWE <- function(eta,
     #----------------------------------------------------------------------#
     # Eliminate patients with only 1 tx option from dataset for fit        #
     #----------------------------------------------------------------------#
-    useGrps <- which(sapply(X = Subsets(txInfoTemp), FUN = length) > 1.5)
-    use4fit <- PtsSubset(txInfoTemp) %in% names(Subsets(txInfoTemp))[useGrps]
+    use4fit <- eliminateSingleTx(subsets=Subsets(txInfoTemp), 
+                                 ptsSubset=PtsSubset(txInfoTemp))
 
     #----------------------------------------------------------------------#
     # For patients with 1 tx, set to original Ytilde value                 #

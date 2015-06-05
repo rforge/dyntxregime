@@ -88,6 +88,9 @@ qLearn <- function(...,
   #++++++                         Verify Input                         ++++++#
   #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
 
+  #--------------------------------------------------------------------------#
+  # data must be a data.frame object.                                        #
+  #--------------------------------------------------------------------------#
   if( !is(data, 'data.frame') ) {
 
     UserError("input", 
@@ -98,11 +101,17 @@ qLearn <- function(...,
 
   }
 
+  #--------------------------------------------------------------------------#
+  # txName must be a character object.                                       #
+  #--------------------------------------------------------------------------#
   if( !is(txName, 'character') ) {
     msg <- "'txName', must be a character object."
     UserError("input", msg)
   }
 
+  #--------------------------------------------------------------------------#
+  # Make sure treatment variable is in data.frame.                           #
+  #--------------------------------------------------------------------------#
   txVec <- try(data[,txName], silent = TRUE)
 
   if( is(txVec,"try-error") ) {
@@ -110,6 +119,9 @@ qLearn <- function(...,
               paste(txName, " not found in data.", sep="") )
   }
 
+  #--------------------------------------------------------------------------#
+  # Treatment must be either a factor or an integer.                         #
+  #--------------------------------------------------------------------------#
   if( !is(txVec,"factor") ) {
     if( !isTRUE(all.equal(txVec, round(txVec,0L))) ) {
       UserError("input",
@@ -118,85 +130,81 @@ qLearn <- function(...,
     data[,txName] <- as.integer(round(data[,txName],0L))
   }
 
-  if( is.list(moMain) ) {
+  #--------------------------------------------------------------------------#
+  # Verify modeling objects.                                                 #
+  #--------------------------------------------------------------------------#
+  tempObj <- list()
+  tempObj[[1]] <- moMain
+  tempObj[[2]] <- moCont
+  nms <- c("moMain","moCont")
 
-    if( length(moMain) < 0.5 ) {
-      UserError("input", 
-                "'moMain' must have length > 0")
-    }
+  for (i in 1L:2L ) {
 
-    tst <- sapply(X = moMain, FUN = class) != 'ModelObjSubset'
-    if( any(tst) ) {
+    if( is.list(tempObj[[i]]) ) {
+      #------------------------------------------------------------------#
+      # If obj is a list, verify verify that it contains information.    #
+      #------------------------------------------------------------------#
+
+      if( length(tempObj[[i]]) < 0.5 ) {
+        UserError("input", 
+                  paste(nms[i],"must have length > 0",sep="  "))
+      }
+
+      #------------------------------------------------------------------#
+      # Verify that each element is a subset model object.               #
+      #------------------------------------------------------------------#
+      tst <- sapply(X = tempObj[[i]], FUN = class) != 'ModelObjSubset'
+      if( any(tst) ) {
+        UserError("input", 
+                  paste("If class(",nms[i],") == list, ",
+                        "all elements must be of class modelObjSubset.\n", 
+                        "Received objects of class ", 
+                        paste(is(tempObj[[i]]), collapse=", "), ".",
+                        sep=""))
+      }
+
+      #------------------------------------------------------------------#
+      # fSet must be provided when subset models are specified.          #
+      #------------------------------------------------------------------#
+      if( is(fSet, "NULL") ) {
+        UserError("input", 
+                  paste("When using objects of class modelObjSubset, ",
+                        "fSet must be provided.", sep=""))
+      }
+
+      tempObj[[i]] <- new("ModelObjSubsetList",
+                          loo = tempObj[[i]])
+
+    } else if( !is(tempObj[[i]], "modelObj") && !is(tempObj[[i]], "NULL") ) {
+
+      #------------------------------------------------------------------#
+      # If single object is provided in obj, must be NULL or modelObj.   #
+      #------------------------------------------------------------------#
       UserError("input", 
-                paste("If class(moMain) == list, ",
-                      "all elements must be of class modelObjSubset.\n", 
-                      "Received objects of class ", 
-                      paste(is(moMain), collapse=", "), ".",
+                paste("If modeling the superset of treatment options, ",
+                       nms[i], "must be of class modelObj.\n", 
+                      "Received an object of class ", 
+                      paste(is(tempObj[[i]]),collapse=","), ".",
                       sep=""))
+
     }
-
-    if( is(fSet, "NULL") ) {
-      UserError("input", 
-                paste("When using objects of class modelObjSubset, ",
-                      "fSet must be provided.", sep=""))
-    }
-
-    moMain <- new("ModelObjSubsetList",
-                  loo = moMain)
-
-  } else if( !is(moMain, "modelObj") && !is(moMain, "NULL") ) {
-
-    UserError("input", 
-              paste("If modeling the superset of treatment options, ",
-                    "moMain must be of class modelObj.\n", 
-                    "Received an object of class ", 
-                    paste(is(moMain),collapse=","), ".",
-                    sep=""))
-
   }
 
-  if( is(moCont, "list") ){
+  moMain <- tempObj[[1L]]
+  moCont <- tempObj[[2L]]
 
-    if( length(moCont) < 0.5 ) {
-      UserError("input", 
-                "'moCont' must have length > 0")
-    }
 
-    tst <- sapply(X = moCont, FUN = class) != 'ModelObjSubset'
-    if( any(tst) ) {
-      UserError("input", 
-                paste("If class(moCont) == list, ",
-                      "all elements must be of class modelObjSubset.\n", 
-                      "Received a objects of class ", 
-                      paste(is(moCont), collapse=","), ".",
-                      sep=""))
-    }
-
-    if( is(fSet, "NULL") ) {
-      UserError("input", 
-                paste("When using objects of class modelObjSubset, ",
-                      "fSet must be provided.", sep=""))
-    }
-
-    moCont <- new("ModelObjSubsetList",
-                  loo = moCont)
-
-  } else if( !is(moCont, "modelObj") && !is(moCont, "NULL") ) {
-
-    UserError("input", 
-              paste("If modeling the superset of treatment options, ",
-                    "moCont must be of class modelObj.\n", 
-                    "Received an object of class ", 
-                    paste(is(moCont),collapse=","), ".",
-                    sep=""))
-
-  }
-
+  #--------------------------------------------------------------------------#
+  # At least one modeling object must be given.                              #
+  #--------------------------------------------------------------------------#
   if( is(moMain, "NULL") && is(moCont, "NULL") ){
     UserError("input", 
               "Must provide at least one of {moMain, moCont}.")
   }
 
+  #--------------------------------------------------------------------------#
+  # Update Q-learning step information                                       #
+  #--------------------------------------------------------------------------#
   if( is(response, "QLearn")  ){
     step <- IStep(response) + 1L
     response <- YTilde(response)
@@ -215,6 +223,9 @@ qLearn <- function(...,
 
   if( !suppress ) cat("\n\nStep ", step, " of Q-learning algorithm.\n\n")
 
+  #--------------------------------------------------------------------------#
+  # Process treatment option information.                                    #
+  #--------------------------------------------------------------------------#
   if( is(fSet, "NULL") || is(fSet, "function") ){
 
     txInfo <- txProcess(txVar = txName, 
@@ -231,6 +242,9 @@ qLearn <- function(...,
 
   }
 
+  #--------------------------------------------------------------------------#
+  # Perform Q-Learning to obtain regression models.                          #
+  #--------------------------------------------------------------------------#
   est <- qLearnEst(moMain = moMain, 
                    moCont = moCont,
                    data = data, 

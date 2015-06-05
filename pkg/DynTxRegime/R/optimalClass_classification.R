@@ -10,7 +10,6 @@
 # moClass  : an object of class modelObj, which defines the models and         #
 #            R methods to be used to obtain parameter estimates and            #
 #            predictions for the classification                                #
-#            See ?modelObj for details.                                        #
 #                                                                              #
 #            It is assumed that the solver.method contains                     #
 #              weights : A vector of weights to be used in the fitting         #

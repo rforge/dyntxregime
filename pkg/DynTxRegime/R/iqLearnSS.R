@@ -7,13 +7,11 @@
 # moMain  : an object of class modelObj that defines the models and R methods  #
 #           to be used to obtain parameter estimates and predictions for main  #
 #           effects component of outcome regression.                           #
-#           See ?modelObj for details.                                         #
 #           NULL is an acceptable value if moCont is defined.                  #
 #                                                                              #
 # moCont  : an object of class modelObj that defines the models and R methods  #
 #           to be used to obtain parameter estimates and predictions for       #
 #           contrasts component of outcome regression.                         #
-#           See ?modelObj for details.                                         #
 #           NULL is an acceptable value if moMain is defined.                  #
 #                                                                              #
 # data    : data.frame of covariates and treatment histories                   #
@@ -136,7 +134,8 @@ iqLearnSS <- function(...,
   }
 
   #--------------------------------------------------------------------------#
-  # Verify that tx is either an integer or a factor.                         #
+  # Treatment must be an integer.                                            #
+  # If a factor, throw error. If numeric, recast as integer.                 #
   #--------------------------------------------------------------------------#
   if( is(txVec,"factor") ) {
       UserError("input",
@@ -155,7 +154,7 @@ iqLearnSS <- function(...,
 
   #--------------------------------------------------------------------------#
   # Process treatment information.                                           #
-  # Note that fSet cannot be specified for IQ-Learning methods and thus is   #
+  # Note that fSet cannot be specified for IQ-Learning methods and thus it   #
   # defaults to NULL in call to txProcess.                                   #
   #--------------------------------------------------------------------------#
   txInfo <- txProcess(txVar = txName, 
@@ -176,6 +175,7 @@ iqLearnSS <- function(...,
     UserError("input",
               "Treatment must be coded as {-1,1}")
   }
+
   #--------------------------------------------------------------------------#
   # Obtain fit of moMain and moCont models                                   #
   #--------------------------------------------------------------------------#
@@ -194,13 +194,29 @@ iqLearnSS <- function(...,
                        ncol = 2L,
                        dimnames = list(NULL,sset))
 
+  #--------------------------------------------------------------------------#
+  # Set treatment to -1 for all samples.                                     #
+  #--------------------------------------------------------------------------#
   data[,txName] <- -1L
 
+  #--------------------------------------------------------------------------#
+  # Obtain predicted main effects and contrast for this new dataset.         #
+  # Note that the contrast model explicitly includes the treatment variable  #
+  # and thus does not need to be included in the prediction expression.      #
+  #--------------------------------------------------------------------------#
   qFunctions[,1L] <- PredictMain(object = est, newdata = data) +
                      PredictCont(object = est, newdata = data)
 
+  #--------------------------------------------------------------------------#
+  # Set treatment to 1 for all samples.                                      #
+  #--------------------------------------------------------------------------#
   data[,txName] <- 1L
 
+  #--------------------------------------------------------------------------#
+  # Obtain predicted main effects and contrast for this new dataset.         #
+  # Note that the contrast model explicitly includes the treatment variable  #
+  # and thus does not need to be included in the prediction expression.      #
+  #--------------------------------------------------------------------------#
   qFunctions[,2L] <- PredictMain(object = est, newdata = data) +
                      PredictCont(object = est, newdata = data)
 

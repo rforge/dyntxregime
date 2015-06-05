@@ -17,7 +17,6 @@
 #           or a list of objects of class modelObjSubset, which define the     #
 #           models and R methods to be used to obtain parameter estimates and  #
 #           predictions for the propensity for treatment.                      #
-#           See ?modelObj and/or ?modelObjSubset for details.                  #
 #                                                                              #
 #           If the prediction method specified in moPropen returns             #
 #           predictions for only a subset of the categorical tx data,          #
@@ -32,14 +31,12 @@
 #           models and R methods to be used to obtain parameter estimates and  #
 #           predictions for the main effects component of the outcome          #
 #           regression.                                                        #
-#           See ?modelObj and/or ?modelObjSubset for details.                  #
 #                                                                              #
 # moCont  : an object of class modelObj, a list of objects of class modelObj,  #
 #           or a list of objects of class modelObjSubset, which define the     #
 #           models and R methods to be used to obtain parameter estimates and  #
 #           predictions for the contrasts component of the outcome             #
 #           regression.                                                        #
-#           See ?modelObj and/or ?modelObjSubset for details.                  #
 #                                                                              #
 # data    : a data frame of the covariates and tx histories                    #
 #           tx variableS will be recast as factors if not provided as such.    #
@@ -134,18 +131,31 @@ optimalSeq <- function(...,
       nDP <- 1L
     } else {
       UserError("input",
-                "A regime must be provided as a function.")
+                "regime must be provided as a function.")
     }
 
+    #----------------------------------------------------------------------#
+    # Extract the formal arguments of the user function.                   #
+    #----------------------------------------------------------------------#
     nms <- names(formals(regimes))
+    #----------------------------------------------------------------------#
+    # Count the number of argument to user function.                       #
+    #----------------------------------------------------------------------#
     nVars <- as.integer(round(length(nms),0L)) - 1L
 
+    #----------------------------------------------------------------------#
+    # If function has no arguments or data is not in the list of names,    #
+    # throw error.                                                         #
+    #----------------------------------------------------------------------#
     if( nVars <= 0L || !('data' %in% nms) ) {
       UserError("input",
                 paste("Formal arguments of function input through regimes ",
                  "must contain all regime parameters and 'data'.", sep=""))
     }
 
+    #----------------------------------------------------------------------#
+    # Create object of class Regime.                                       #
+    #----------------------------------------------------------------------#
     regimes <- new("Regime",
                    nVars = as.integer(nVars),
                    vNames = as.vector(nms),
@@ -163,9 +173,19 @@ optimalSeq <- function(...,
                   "Each element of regimes must be a function.")
       }
 
+      #------------------------------------------------------------------#
+      # Extract the formal arguments of the user function.               #
+      #------------------------------------------------------------------#
       nms <- names(formals(regimes[[i]]))
 
+      #------------------------------------------------------------------#
+      # Count the number of argument to user function.                   #
+      #------------------------------------------------------------------#
       tvars <- as.integer(round(length(nms),0L)) - 1L
+      #------------------------------------------------------------------#
+      # If function has no arguments or data is not in the list of names,#
+      # throw error.                                                     #
+      #------------------------------------------------------------------#
       if( tvars <= 0L || !('data' %in% nms) ) {
         UserError("input",
                   paste("Formal arguments of function input through regimes ",
@@ -173,14 +193,23 @@ optimalSeq <- function(...,
                         sep=""))
       }
 
+      #------------------------------------------------------------------#
+      # Track total number of variables in all regimes.                  #
+      #------------------------------------------------------------------#
       nVars <- nVars + tvars
 
+      #------------------------------------------------------------------#
+      # Create object of class Regime.                                   #
+      #------------------------------------------------------------------#
       regimeInfo[[i]] <- new("Regime",
                              nVars = as.integer(tvars),
                              vNames = as.vector(nms),
                              func = regimes[[i]] )
     }
 
+    #----------------------------------------------------------------------#
+    # Create object of class RegimeList.                                   #
+    #----------------------------------------------------------------------#
     regimes <- new("RegimeList", 
                    loo = regimeInfo)
     rm(regimeInfo)
@@ -188,7 +217,7 @@ optimalSeq <- function(...,
 
 
   #--------------------------------------------------------------------------#
-  # Convert moPropen to internal class definition of needed.                 #
+  # Identify the type of estimator requested.                                #
   #--------------------------------------------------------------------------#
   if( is(moCont, "NULL") && is(moMain, "NULL") ) {
     if( !suppress ) cat("Inverse Probability Weighted Estimator\n")
@@ -206,6 +235,10 @@ optimalSeq <- function(...,
     moCont <- NULL
   }
 
+  #--------------------------------------------------------------------------#
+  # For each modeling object, verify the number of models provided.          #
+  # Convert to lists if multi-decision point.                                #
+  #--------------------------------------------------------------------------#
   objs <- list("moPropen" = moPropen,
                "moMain" = moMain,
                "moCont" = moCont)
@@ -267,6 +300,9 @@ optimalSeq <- function(...,
               "'txName' must be a character.")
   }
 
+  #--------------------------------------------------------------------------#
+  # Verify that the treatments are in dataset.                               #
+  #--------------------------------------------------------------------------#
   for( i in 1L:length(txName) ) {
 
     txVec <- try(data[,txName[i]], silent = TRUE)
@@ -276,6 +312,9 @@ optimalSeq <- function(...,
                 paste(txName[i], " not found in data.", sep="") )
     }
 
+    #----------------------------------------------------------------------#
+    # If not a factor variable, convert to integer.                        #
+    #----------------------------------------------------------------------#
     if( !is(txVec,"factor") ) {
       if( !isTRUE(all.equal(txVec, round(txVec,0L))) ) {
         UserError("input",
@@ -398,7 +437,6 @@ optimalSeq <- function(...,
   #--------------------------------------------------------------------------#
   # set argument list for rgenoud method                                     #
   #--------------------------------------------------------------------------#
-
   argList[['print.level']] <- 0L
   argList[['max']] <- TRUE
   argList[['gradient.check']] <- FALSE
@@ -419,6 +457,9 @@ optimalSeq <- function(...,
                   ncol = nDP,
                   dimnames = list(NULL,paste("dp=", 1L:nDP)))
 
+  #--------------------------------------------------------------------------#
+  # Calculate optimal treatment regime and refit models if requested.        #
+  #--------------------------------------------------------------------------#
   k <- nDP
   while( k > 0L ){
 
@@ -487,8 +528,8 @@ optimalSeq <- function(...,
       #------------------------------------------------------------------#
       # Eliminate patients with only 1 tx option from dataset for fit    #
       #------------------------------------------------------------------#
-      useGrps <- sapply(X = Subsets(txI), FUN = length) > 1L
-      use4fit <- PtsSubset(txI) %in% names(Subsets(txI))[which(useGrps)]
+      use4fit <- eliminateSingleTx(subsets=Subsets(txI), 
+                                   ptsSubset=PtsSubset(txI))
 
       #------------------------------------------------------------------#
       # Change kth tx for all patients to be in accordance with regime   #
@@ -545,6 +586,8 @@ optimalSeq <- function(...,
                 optTx = optTx,
                 txInfo = txInfo,
                 call = call)
+
   if( !suppress ) show(result)
+
   return(result)
 }

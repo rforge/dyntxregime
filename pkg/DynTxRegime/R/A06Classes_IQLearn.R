@@ -3,7 +3,11 @@
 #                                 CLASS IQEst                                  #
 #                                                                              #
 #::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::#
-
+# contains results for a q-learning step of the iq-learning algorithm          #
+#                                                                              #
+#  fitObj : a SimpleFit or IterateFit object.                                  #
+#                                                                              #
+#::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::#
 setClass(Class = "IQEst",
          slots = c( fitObj = "SimpleFit or IterateFit" ) )
 
@@ -440,7 +444,8 @@ setMethod(f = "Print",
             print(Call(x))
             cat("\n")
             Print(x@fitObj)
-          } )#::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::#
+          } )
+#::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::#
 #                                                                              #
 #                              CLASS IQLearnFS_C                               #
 #                                                                              #
@@ -518,7 +523,8 @@ setMethod(f = "Print",
             print(Call(x))
             cat("\n")
             Print(x@fitObj)
-          } )#::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::#
+          } )
+#::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::#
 #                                                                              #
 #                            CLASS IQLearnFS_VHom                              #
 #                                                                              #
@@ -560,7 +566,8 @@ setMethod(f = "Print",
             cat("\n")
             cat("Standard Deviation: ", x@stdDev, "\n", sep="")
           } )
-setMethod(f = "Propen",    
+
+setMethod(f = "Propen",    
           signature = c(object = "IQLearnFS_VHom"), 
           definition = function(object, ...){
                          return( NULL )
@@ -586,7 +593,8 @@ setMethod(f = "Show",
             cat("\n")
             cat("Standard Deviation: ", object@stdDev, "\n", sep="")
           } )
-setMethod(f = "StdDev", 
+
+setMethod(f = "StdDev", 
           signature = c(object = "IQLearnFS_VHom"), 
           definition = function(object, ...){ 
                          return( object@stdDev ) 

@@ -40,7 +40,7 @@ optimalClass_AIPWE <- function(outcome,
   n <- nrow(data)
 
   #--------------------------------------------------------------------------#
-  # Duplicate dataset for each treatment option                              #
+  # Duplicate dataset for each treatment option  {0,1}                       #
   #--------------------------------------------------------------------------#
   dft <- rbind(data, data)
   dft[,TxName(txInfo)] <- c(rep(0L,n), rep(1L,n))
@@ -51,6 +51,9 @@ optimalClass_AIPWE <- function(outcome,
   me <- PredictMain(object=outcome, newdata=dft)
   cn <- PredictCont(object=outcome, newdata=dft)
 
+  #--------------------------------------------------------------------------#
+  # Recast as a two column matrix; one column for each treatment.            #
+  #--------------------------------------------------------------------------#
   mu <- matrix(me + cn, ncol = 2L)
 
   #--------------------------------------------------------------------------#
@@ -61,7 +64,10 @@ optimalClass_AIPWE <- function(outcome,
         (tx - propensity[,"1"])/propensity[,"1"]*mu[,2L] - 
         (tx - propensity[,"1"])/propensity[,"0"]*mu[,1L]
 
-  mmu <- (1.0 - tx)/propensity[,"0"]*response -
+  #--------------------------------------------------------------------------#
+  # Calculate non-contrast contribution to AIPWE estimator.                  #
+  #--------------------------------------------------------------------------#
+  mmu <- (1.0 - tx)/propensity[,"0"]*response +
          (tx - propensity[,"1"])/propensity[,"0"]*mu[,1L]
 
   mmu <- sum(mmu)/n

@@ -10,7 +10,6 @@
 #           Define the models and R methods to be used to obtain               #
 #           parameter estimates and predictions for the propensity for         #
 #           treatment.                                                         #
-#           See ?modelObj and/or ?modelObjSubset for details.                  #
 #                                                                              #
 #           If the prediction method specified in moPropen returns             #
 #           predictions for only a subset of the categorical tx data,          #
@@ -22,7 +21,6 @@
 #           Define the models and R methods to be used to obtain               #
 #           parameter estimates and predictions for the main effects           #
 #           component of the outcome regression.                               #
-#           See ?modelObj and/or ?modelObjSubset for details.                  #
 #           NULL is an appropriate value.                                      #
 #                                                                              #
 # moCont  : a single object of class modelObj, a list of objects of class      #
@@ -30,7 +28,6 @@
 #           Define the models and R methods to be used to obtain               #
 #           parameter estimates and predictions for the contrasts              #
 #           component of the outcome regression.                               #
-#           See ?modelObj and/or ?modelObjSubset for details.                  #
 #           NULL is an appropriate value.                                      #
 #                                                                              #
 # data    : a data frame of the covariates and tx histories                    #
@@ -83,6 +80,9 @@ optimalCore <- function(moPropen,
                         refit = FALSE,
                         iter = 0L){
 
+  #--------------------------------------------------------------------------#
+  # Determine number of decision points based on txInfo variable.            #
+  #--------------------------------------------------------------------------#
   if( is(txInfo,'TxInfoList') ) {
     nDP <- length(txInfo)
   } else if( is(txInfo,'TxInfo') ) {
@@ -91,6 +91,9 @@ optimalCore <- function(moPropen,
     DeveloperError("txInfo not of appropriate class", "optimalCore")
   }
 
+  #--------------------------------------------------------------------------#
+  # For each modeling object, verify number of models provided.              #
+  #--------------------------------------------------------------------------#
   objs <- list("moPropen" = moPropen, 
                "moMain" = moMain, 
                "moCont" = moCont)
@@ -140,8 +143,14 @@ optimalCore <- function(moPropen,
 
   for( i in 1L:nDP ) {
 
+    #----------------------------------------------------------------------#
+    # Pick propensity model(s) for current decision point.                 #
+    #----------------------------------------------------------------------#
     mods <- pickPropenModels(moPropen, i)
 
+    #----------------------------------------------------------------------#
+    # Retrieve appropriate treatment information.                          
+    #----------------------------------------------------------------------#
     if( is(txInfo,'TxInfo') ){
       txI <- txInfo
     } else if( is(txInfo,'TxInfoList') ){
@@ -150,12 +159,19 @@ optimalCore <- function(moPropen,
       DeveloperError("txInfo not of appropriate class", "optimalCore")
     }
 
+    #----------------------------------------------------------------------#
+    # Fit propensity model(s).                                             #
+    #----------------------------------------------------------------------#
     propen[[i]] <- fitPropen(moPropen = mods,
                              txInfo = txI,  
                              data = data)
 
   }
 
+  #--------------------------------------------------------------------------#
+  # If only 1 propensity fit, remove from list. If more than one, recast as  #
+  # a PropenFitList object.                                                  #
+  #--------------------------------------------------------------------------#
   if( as.integer(round(length(propen),0L)) == 1L ) {
     propen <- propen[[1]]
   } else {
@@ -174,9 +190,14 @@ optimalCore <- function(moPropen,
     #----------------------------------------------------------------------#
     # Fit the last decision point model                                    #
     #----------------------------------------------------------------------#
-
+    #----------------------------------------------------------------------#
+    # Pick appropriate model(s).                                           #
+    #----------------------------------------------------------------------#
     mods <- pickOutcomeModels(moMain, moCont, nDP)
 
+    #----------------------------------------------------------------------#
+    # Retrieve appropriate treatment information.                          #
+    #----------------------------------------------------------------------#
     if( is(txInfo,'TxInfo') ){
       txI <- txInfo
     } else if( is(txInfo,'TxInfoList') ){
@@ -185,6 +206,9 @@ optimalCore <- function(moPropen,
       DeveloperError("txInfo not of appropriate class", "optimalCore")
     }
 
+    #----------------------------------------------------------------------#
+    # Obtain fit.                                                          #
+    #----------------------------------------------------------------------#
     outcome[[nDP]] <- qLearnEst(moMain = mods$moMain,
                                 moCont = mods$moCont,
                                 data = data,
@@ -192,12 +216,23 @@ optimalCore <- function(moPropen,
                                 iter = iter,
                                 txInfo = txI)
 
+    #----------------------------------------------------------------------#
+    # Fit remaining models in reverse order.                               #
+    #----------------------------------------------------------------------#
     j <- nDP - 1L
 
     while(j > 0L){
 
+      #------------------------------------------------------------------#
+      # Pick appropriate model(s).                                       #
+      #------------------------------------------------------------------#
       mods <- pickOutcomeModels(moMain, moCont, j)
 
+      #------------------------------------------------------------------#
+      # Obtain fit.                                                      #
+      # Note that it is not necessary to "pick" the treatment; only list #
+      # objects make it this far.                                        #
+      #------------------------------------------------------------------#
       outcome[[j]] <- qLearnEst(moMain = mods$moMain,
                                 moCont = mods$moCont,
                                 data = data,
@@ -209,6 +244,10 @@ optimalCore <- function(moPropen,
     }
   }
 
+  #--------------------------------------------------------------------------#
+  # If only 1 outcome fit, remove from list. If more than one, recast as     #
+  # a QLearnEstList object.                                                  #
+  #--------------------------------------------------------------------------#
   if( length(outcome) < 0.5 ) {
     outcome <- NULL
   } else if( as.integer(round(length(outcome),0L)) == 1L ) {

@@ -1,6 +1,6 @@
 #::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::#
 #                                                                              #
-# optimalClass_AIPWE : calculates the IPWE contrast function for a single      #
+# optimalClass_IPWE : calculates the IPWE contrast function for a single       #
 #                      decision point binary tx.                               #
 #                                                                              #
 #::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::#
@@ -35,6 +35,9 @@ optimalClass_IPWE <- function(txInfo,
   ym <- tx/propensity[,"1"]*response -
         (1.0 - tx)/propensity[,"0"]*response
 
+  #--------------------------------------------------------------------------#
+  # Calculate non-contrast contribution to IPWE estimator.                   #
+  #--------------------------------------------------------------------------#
   mmu <- (1.0 - tx)/propensity[,"0"]*response
   mmu <- sum(mmu)/nrow(data)
 
