@@ -110,9 +110,9 @@ optimalSeq <- function(...,
                        iter = 0L,
                        suppress = FALSE){
 
-  if( !requireNamespace("rgenoud", quietly=TRUE) ) {
-    stop("optimalSeq requires the rgenoud package available on CRAN.")
-  }
+#  if( !requireNamespace("rgenoud", quietly=TRUE) ) {
+#    stop("optimalSeq requires the rgenoud package available on CRAN.")
+#  }
 
   #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
   #++++++                         Verify Input                         ++++++#

@@ -5,8 +5,8 @@ Version: 2.1
 Date: 2015-06-06
 Author: S. T. Holloway, E. B. Laber, K. A. Linn, B. Zhang, M. Davidian, and A. A. Tsiatis
 Maintainer: Shannon T. Holloway <sthollow@ncsu.edu>
-Description: Methods to estimate Dynamic Treatment Regimes using Interactive Q-Learning, Q-Learning, and value-search methods based on Augmented Inverse Probability Weighted Estimators, and Inverse Probability Weighted Estimators
+Description: A comprehensive toolkit for estimating Dynamic Treatment Regimes. Available methods include Interactive Q-Learning, Q-Learning, and value-search methods based on Augmented Inverse Probability Weighted estimators and Inverse Probability Weighted estimators.
 License: GPL-2
-Depends: methods, modelObj
-Suggests: MASS, rpart, nnet, rgenoud
+Depends: methods, modelObj, rgenoud
+Suggests: MASS, rpart, nnet
 
