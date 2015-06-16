@@ -3,14 +3,14 @@
 \docType{package}
 \title{A Model Object Framework for Regression Analysis}
 \description{
-A utility package to facilitate the generalization of methods built on a regression framework.
+A utility library to facilitate the generalization of statistical methods built on a regression framework. Package developers can use modelObj methods to initiate a regression analysis without concern for the details of the regression model and the method to be used to obtain parameter estimates. The specifics of the regression step are left to the user to define when calling the function. The user of a function developed within the modelObj framework creates as input a modelObj that contains the model and the R methods to be used to obtain parameter estimates and to obtain predictions.  In this way, a user can easily go from linear to non-linear models within the same package.
 }
 \details{
 \tabular{ll}{
 Package: \tab modelObj\cr
 Type: \tab Package\cr
 Version: \tab 1.0\cr
-Date: \tab 2015-02-23\cr
+Date: \tab 2015-06-10\cr
 License: \tab GPL-2\cr
 Depends: \tab methods\cr
 }
